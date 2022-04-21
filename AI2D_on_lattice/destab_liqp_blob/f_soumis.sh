@@ -1,41 +1,41 @@
-
 #!/bin/bash
 
 make clean ; make
 
-mkdir t_destab_D_avg_m
-cd t_destab_D_avg_m
-
-for D in 0.26 #0.005 0.01 0.22 0.24 0.26 0.28 0.3 0.32 0.34 0.36 # 0.02 0.04 0.06 0.08 0.1 0.12 0.14 0.16 0.18 0.2 #0.32 0.34 0.36 0.38 0.4 #0.24 0.26 0.28 0.3 #0.01 0.005 0.22 # # 
-
+mkdir data_beta_h 
+cd data_beta_h
+ 
+for beta in 2.7 2.9 3.1 3.3 3.5 # 1.2 1.5 1.7 1.9 2.1 2.3 2.5 
 do
-    mkdir D$D
-    cd D$D
+    mkdir beta$beta
+    cd beta$beta
 
-    cat <<EOF > f_input.dat
-tgap = 1000000000 tmax = 200000000 rho0 = 3 lx = 200 ly = 100 w0 = 1 beta = 2 v = 1 D = $D phi = 50 rhol = 7 rhog = 1 
+    for h in {10..150..10}
+    do
+
+	mkdir h$h
+	cd h$h
+	
+	cat <<EOF > f_input.dat
+tgap = 100 tmax = 100 rho0 = 5 lx = 100 ly = 20 w0 = 1 beta = $beta v = 1 D = 1 h0 = $h
 EOF
 
-    cat <<EOF > f_simu.sh
+	cat <<EOF > f_simu.sh
 #!/bin/bash
-#SBATCH --job-name=td9_$D
+#SBATCH --job-name=des${beta}$h
 #SBATCH -t 7-00:00:00
 #SBATCH -n 8
-#SBATCH --partition=multi
-
+#SBATCH --partition=multix
 
 export OMP_NUM_THREADS=8
 hostname
 
-/users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/critical_D/9nei/activeIsing
+srun nice -n 19 /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/destab_liqp_blob/activeIsing
 
 EOF
-    chmod u+x f_simu.sh
-    sbatch f_simu.sh
+	chmod u+x f_simu.sh
+	sbatch f_simu.sh
+	cd ..
+    done
     cd ..
 done
-
-
-
-
-#SBATCH --nodelist=phoenix1
