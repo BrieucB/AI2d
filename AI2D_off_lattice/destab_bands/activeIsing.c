@@ -170,7 +170,7 @@ int main(void)
       for(i=0 ; i<N ; i++)
 	{
 	  /* fscan =  fscanf(f_init, "%.3f %.3f %d\n", &x[i], &y[i], &s[i]);  */
-	  x[i]=100*genrand32_real2(rng);
+	  x[i]=0.2*lx*genrand32_real2(rng);
 	  y[i]=ly*genrand32_real2(rng);
 	  dispx[i]=0;
 	  dispy[i]=0;

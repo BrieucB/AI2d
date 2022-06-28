@@ -3,17 +3,17 @@
 
 make clean ; make
 
-mkdir t_destab_D_v2
-cd t_destab_D_v2
+mkdir destab_D
+cd destab_D
 
-for D in 0.02 0.04 #0.2 # 0.06 0.08 0.1 0.12 0.14 0.16 0.18
+for D in 0.06 0.08 0.1 0.12 0.14 0.16 0.18
 
 do
     mkdir D$D
     cd D$D
 
     cat <<EOF > f_input.dat
-tgap = 1000000000 tmax = 2000000 rho0 = 3 lx = 200 ly = 100 w0 = 1 beta = 2 v = 1 D = $D phi = 50 rhol = 7 rhog = 1 
+tgap = 1000000000 tmax = 2000000 rho0 = 3 lx = 200 ly = 100 w0 = 1 beta = 2 D = $D eps = 0.8 phi = 50 rhol = 7 rhog = 1 
 EOF
 
     cat <<EOF > f_simu.sh
@@ -21,7 +21,7 @@ EOF
 #SBATCH --job-name=td9_$D
 #SBATCH -t 7-00:00:00
 #SBATCH -n 8
-#SBATCH --partition=multi
+#SBATCH --partition=multix
 
 export OMP_NUM_THREADS=8
 hostname
