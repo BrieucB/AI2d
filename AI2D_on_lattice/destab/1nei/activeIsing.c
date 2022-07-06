@@ -189,7 +189,7 @@ int main(void)
       clap=0.;
 
       double t_reset=0;
-      double t_destab=999999;
+      double t_destab=99999999999;
       int not_destab=1;
       double row_mag;
       double row_mag_min;

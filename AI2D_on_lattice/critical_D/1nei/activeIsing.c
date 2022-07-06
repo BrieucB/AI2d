@@ -184,7 +184,7 @@ int main(void)
       double row_mag;
       double row_mag_min;
   
-      while(t<tmax) /* TEMPORAL LOOP */
+      while(1) /* TEMPORAL LOOP */
 	{
 	  /* SHUFFLE IN BOX */ 
 	  tot_mag=computeLocalQuantities(lx, ly, N, x, y, s, local_m, local_rho);

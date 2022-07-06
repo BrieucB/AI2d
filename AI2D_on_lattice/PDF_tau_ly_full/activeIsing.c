@@ -108,8 +108,6 @@ int main(void)
   
   constant();
 
-  /* Compute Nd destabilization occurring times */
-
   tot_mag=0;
   
   for(j=0 ; j<ly ; j++)
@@ -144,6 +142,7 @@ int main(void)
   double t_old=0;
   double t_first_rev=0;
 
+  double clap=0;
   
   while(t<tmax) /* TEMPORAL LOOP */
     {
@@ -153,7 +152,7 @@ int main(void)
       /* COMPUTE DISPLACEMENT */
       updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
 
-       /* RECORD MAX MAGNETIZATION */
+      /* RECORD MAX MAGNETIZATION */
       if((tot_mag<0)&&(t_first_rev==0))
 	t_first_rev=t;
 
@@ -169,6 +168,23 @@ int main(void)
 	  tot_mag_old=tot_mag;
 	  fprintf(f_td, "%f\n", t-t_old);
 	  t_old=t;
+	}
+
+      if(t>=clap)
+	{
+	  for(j=0 ; j<ly ; j++)
+	    {
+	      for (i=0 ; i<lx ; i++)
+		{
+		  fprintf(f_profiles, "%d ", local_m[j][i]);
+		  if(fabs(local_m[j][i])>max_mag)
+		    max_mag=fabs(local_m[j][i]);
+		}
+	      fprintf(f_profiles, "\n");
+	    }
+
+	  fprintf(f_profiles, "\n\n");
+	  clap+=tgap;
 	}
       
       /* Output bands */

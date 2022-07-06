@@ -71,7 +71,17 @@ int main(void)
   /****************** Parameter inputs ***************/
 	
   int fscan =  fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d r0 = %lg v0 = %lg D = %lg beta = %lg w0 = %lg" , &tgap, &tmax, &rho0, &lx, &ly, &r0, &v0, &D, &beta, &w0);
-    
+
+
+  /* RESCALE ALL LENGTHS TO GET A DETECTION AREA OF 1 */
+  double sqrtpi = 1.7724538509055159;
+ 
+  D=sqrtpi*sqrtpi*D;
+  rho0=rho0/(sqrtpi*sqrtpi);
+  lx=sqrtpi*lx;
+  ly=sqrtpi*ly;
+  v0=sqrtpi*v0;
+  
   N= (int) floor(rho0*lx*ly);
   dt = fmin((0.1*r0)*(0.1*r0)/(2.*D), (0.1*r0)/v0);
   if(dt>exp(-beta))

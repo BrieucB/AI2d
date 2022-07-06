@@ -2,8 +2,8 @@
 
 make clean ; make
 
-mkdir data_rev_ly_D1.2
-cd data_rev_ly_D1.2
+mkdir film_ly
+cd film_ly
 
 for ly in 1 2 3 4 5 6 7 
 
@@ -12,15 +12,16 @@ do
     cd ly${ly}
 
     cat <<EOF > f_input.dat
-tgap = 999999999999 tmax = 99999999999 rho0 = 3 lx = 100 ly = ${ly} w0 = 1 beta = 2 v = 1 D = 1.2
+tgap = 5 tmax = 1000000 rho0 = 3 lx = 100 ly = ${ly} w0 = 1 beta = 2 v = 1 D = 1
 EOF
 
     cat <<EOF > f_simu.sh
 #!/bin/bash
-#SBATCH --job-name=r_.7D${ly}
+#SBATCH --job-name=D.5l${ly}
 #SBATCH -t 7-00:00:00
 #SBATCH -n 8
-#SBATCH --partition=multi
+#SBATCH --partition=multix
+#SBATCH --nodelist=phoenix2
 
 export OMP_NUM_THREADS=8
 hostname
@@ -33,4 +34,4 @@ EOF
     cd ..
 done
 
-#SBATCH --nodelist=phoenix4
+
