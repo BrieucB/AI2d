@@ -43,7 +43,7 @@ int main(void)
   
   /******************* Files ************************/
   	
-  FILE *f_coord, *f_input, *f_gp_prof, *f_profiles_rho, *f_profiles_m, *f_mag, *f_plotmag;
+  FILE *f_coord, *f_input, *f_gp_prof, *f_profiles, *f_mag, *f_plotmag;
   FILE *f_gp_parts, *f_gp_avg_prof, *f_avg_prof;
   FILE *f_td;
   
@@ -59,7 +59,7 @@ int main(void)
   f_mag=fopen("f_mag.dat", "w");
   f_plotmag=fopen("plot_mag.gp", "w");
   f_td=fopen("f_td.dat", "w");
-  f_profiles_rho=fopen("f_profiles.dat", "w");
+  f_profiles=fopen("f_profiles.dat", "w");
   
   /****************** Random initialization **********/
 	
@@ -208,7 +208,6 @@ int main(void)
 	  /* UPDATE POSITIONS */
 	  tot_mag = updatePositions(lx, ly, N, x, y, dispx, dispy, s, new_s);
 
-
 	  /* Detect destab & stop simulation right after */
  	  row_mag_min=0;
 	  for(j=0 ; j<ly ; j++)
@@ -255,13 +254,11 @@ int main(void)
 			  loc_mag+=s[jj];
 			}
 
-		      fprintf(f_profiles_m, "%d ", loc_mag);
-		      fprintf(f_profiles_rho, "%d ", nend-nstart);
+		      fprintf(f_profiles, "%d ", loc_mag);
 
 		    }
 
-		  fprintf(f_profiles_m, "\n");
-		  fprintf(f_profiles_rho, "\n");	
+		  fprintf(f_profiles, "\n");
 		 
 		}
 	      break;
@@ -275,7 +272,6 @@ int main(void)
 	} /* END WHILE */
       
       fprintf(f_td, "%.2f\n", t);
-      fflush(f_td);
     }
       
   /* fprintf(f_gp_prof, "set pm3d map\nset cbrange[-%d:%d]\nset palette rgb 33,13,10\nset terminal pngcairo size 800,800 enhanced font 'Verdana,10'\ndo for [i=0:%d] {\nset output sprintf('%s/snaps_prof/snap_%%05.0f.png', i);\n\t splot 'f_profiles.dat' index i  matrix with image notitle,\n \t set title sprintf('T = %%d', i)\n}", 10, 10, (int) (tmax/tgap)-1, path); */
@@ -293,8 +289,7 @@ int main(void)
   fclose(f_coord);
   fclose(f_gp_parts);
   
-  fclose(f_profiles_m);
-  fclose(f_profiles_rho);
+  fclose(f_profiles);
   fclose(f_gp_prof);
 
   fclose(f_avg_prof);
