@@ -7,8 +7,8 @@
 .SUFFIXES:
 
 CC = gcc
-LDLIBS = -lm -fopenmp
-CFLAGS = -Ofast -fopenmp
+LDLIBS = -lm
+CFLAGS = -Ofast
 CCFLAGS = #-g -Wall #-pg
 
 OBJ = solve_PDEs_2d.o allocation.o exit_if.o erreurs.o

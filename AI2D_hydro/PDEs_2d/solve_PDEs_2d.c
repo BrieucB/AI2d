@@ -4,14 +4,15 @@
 #include <float.h>
 #include <string.h>
 #include <omp.h>
+#include <time.h>
 
 #include "allocation.h"
 #include "exit_if.h"
 #include "erreurs.h"
 
-void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, double r, double D, double v, double rhol, double tgap, double rhof)
+void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, double D, double v, double rhol, double gamma, double tgap, double rhof)
 {
-  int Nt= (int) floor(tmax/dt);
+  double Nt= floor(tmax/dt);
 
   int Nx= (int) floor(lx/ds) +2; // PADDING FOR PBC
   int Nx2= (int) floor(Nx/2);
@@ -20,21 +21,30 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
   int Ny2= (int) floor(Ny/2);
 
   int Nout=(int) floor(tgap/dt);
-  int clap = 0;
+  int clap = Nout;
 
   double c_diff=D*(dt/(ds*ds));
   double c_adv=(v/2.)*(dt/ds);
-  double c_m=2.*(beta-1.);
-  double c_m3=dt*beta*beta*(1.-beta/3.);
 
-  double ml=rhol*sqrt(2.*(beta-1.-r/rhol)/(beta*beta*(1.-beta/3.)));
+  //  clock_t start, end;
+  double start, end;
+  
+  /* Determine ml = rhol*tanh(beta*phil) */
+  double phil = 0.5;
+
+  for(int p=0 ; p<100 ; p++)
+    {
+      phil=tanh(beta*phil);
+    }
+
+  double ml=rhol*phil;
     
   double **rho = dmatrix((long) Nx, (long) Ny);
   double **m = dmatrix((long) Nx, (long) Ny);
 
   double **old_rho = dmatrix((long) Nx, (long) Ny);
   double **old_m = dmatrix((long) Nx, (long) Ny);
-
+  
   for(int x=0 ; x<Nx ; x++)
     {
       for(int y=0 ; y<Ny ; y++)
@@ -43,17 +53,19 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 	  rho[x][y]=rhol;
 	  m[x][y]=ml;
 
-
 	  old_rho[x][y]=rhol;
 	  old_m[x][y]=ml;
 
 	}
     }
+
+
+  int Nxfront=(int) floor(0.1*Nx);
   
   double r0=5;
-  for(int x=Nx2-((int) floor(r0/ds))+1 ; x<Nx2+((int) floor(r0/ds)); x++)
+  for(int x=Nxfront-((int) floor(r0/ds))+1 ; x<Nxfront+((int) floor(r0/ds)); x++)
     {
-      double dsx=((double) x- (double) Nx2);
+      double dsx=((double) x- (double) Nxfront);
 
       for(int y=Ny2-((int) floor(r0/ds))+1 ; y<Ny2+((int) floor(r0/ds)) ; y++)
 	{
@@ -66,54 +78,164 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 	}
     }
 
+
+  /* for(int x=Nx2-((int) floor(r0/ds))+1 ; x<Nx2+((int) floor(r0/ds)); x++) */
+  /*   { */
+  /*     double dsx=((double) x- (double) Nx2); */
+
+  /*     for(int y=Ny2-((int) floor(r0/ds))+1 ; y<Ny2+((int) floor(r0/ds)) ; y++) */
+  /* 	{ */
+  /* 	  double dsy=((double) y - (double) Ny2); */
+  /* 	  if(ds*ds*(dsx*dsx+dsy*dsy)<=r0*r0) */
+  /* 	    { */
+  /* 	      rho[x][y] += (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); */
+  /* 	      m[x][y] -= (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); // ADD A BLOB OF density rhof : change normalization constant in 1d */
+  /* 	    } */
+  /* 	} */
+  /*   } */
   
   FILE *f_rho, *f_m;
 
-  f_rho=fopen("f_rho.dat", "w");
-  f_m=fopen("f_m.dat", "w");
+  /* f_rho=fopen("f_rho_t0.dat", "w"); */
+  /* f_m=fopen("f_m_t0.dat", "w"); */
 
 
-  for(int x=1 ; x<Nx-1 ; x++)
-    {
+  /* for(int x=1 ; x<Nx2 ; x++) */
+  /*   { */
 
-      for(int y=1 ; y<Ny-1 ; y++)
-	{
+  /*     for(int y=1 ; y<Ny-1 ; y++) */
+  /* 	{ */
 
-	  fprintf(f_rho, "%f ", rho[x][y]);
-	  fprintf(f_m, "%f ", m[x][y]);
+  /* 	  fprintf(f_rho, "%f ", rho[x][y]); */
+  /* 	  fprintf(f_m, "%f ", m[x][y]); */
 
-	}
+  /* 	} */
       
-      fprintf(f_rho, "\n");
-      fprintf(f_m, "\n");
+  /*     fprintf(f_rho, "\n"); */
+  /*     fprintf(f_m, "\n"); */
 
-    }
+  /*   } */
   
-  fprintf(f_rho, "\n");
-  fprintf(f_m, "\n");
+  /* fprintf(f_rho, "\n"); */
+  /* fprintf(f_m, "\n"); */
 
-      
-  int t=0;
+
+  /* int xmin = Nx2-100; */
+  /* int xmax = Nx2+100; */
+  /* int ymin = Ny2-100; */
+  /* int ymax = Ny2+100; */
+
+  double t=0;
+  int x0=0;
+
+  
+  int t1=0;
+
+  start=omp_get_wtime();//clock();
   while(t<Nt)
     {
+      //      printf("%.2f\n", t*dt);
 
-      for(int x=0; x<Nx ; x++)
+      if((int) floor(t*dt)>=t1)
 	{
+	  end=omp_get_wtime();//clock();
+	  double time_taken = ((double) end-start);
+	  printf("%d %f SEC\n", (int) floor(t*dt), time_taken);
+	  t1+=10;
+	}
+      
+      /* for(int x=0; x<Nx ; x++) */
+      /* 	{ */
   
-	  memcpy(old_rho[x], rho[x], Ny*sizeof(double));
-	  memcpy(old_m[x], m[x], Ny*sizeof(double));
+      /* 	  memcpy(old_rho[x], rho[x], Ny*sizeof(double)); */
+      /* 	  memcpy(old_m[x], m[x], Ny*sizeof(double)); */
+      /* 	} */
+
+      int x=0;
+      while(m[x][Ny2]*m[x+1][Ny2]>0)
+	{
+	  x++;
+	}
+      int xmin = x;
+
+      //      printf("xmin  = %d\n", xmin);
+
+      /* Roll the lattice along the x-axis to set the droplet front on the left boundary */
+
+
+      //printf("xmax  = %d\n", Nx+Nxfront-xmin-1);
+      
+#pragma omp parallel for default(shared)      
+      for(int x=0 ; x<Nx ; x++)
+	{
+	  /* printf("u = %d ", x); */
+	  /* printf("x = %d \n", x-Nxfront+xmin); */
+
+	  for(int y=0 ; y<Ny ; y++)
+	    {
+	      old_m[x][y] = m[(x-Nxfront+xmin+Nx)%Nx][y];
+	      old_rho[x][y] = rho[(x-Nxfront+xmin+Nx)%Nx][y];
+	    }
+
 	}
 
-      /* memcpy(old_rho, rho, Ny*sizeof(*rho)); */
-      /* memcpy(old_m, m, Ny*sizeof(*m)); */
-
+      x0+=-Nxfront+xmin;
       
+      /* Fill the blank with liquid phase */
+      for(int x=Nx-10 ; x<Nx ; x++)
+	{
+	  for(int y=0 ; y<Ny ; y++)
+	    {
+	      old_m[x][y]=ml;
+	      old_rho[x][y]=rhol;
+	    }
+	}
+
+      for(int x=0 ; x<10 ; x++)
+	{
+	  for(int y=0 ; y<Ny ; y++)
+	    {
+	      old_m[x][y]=ml;
+	      old_rho[x][y]=rhol;
+	    }
+	} 
+
+
+      /* Roll the lattice along the x-axis to center the droplet
+	 /* for(int x=0 ; x<Nx2+xmin ; x++) */
+      /* 	{ */
+      /* 	  for(int y=1 ; y<Ny-1 ; y++) */
+      /* 	    { */
+      /* 	      old_m[x+Nx2-xmin][y]=m[x][y]; */
+      /* 	      old_rho[x+Nx2-xmin][y]=rho[x][y]; */
+      /* 	    } */
+      /* 	} */
+
+      /* /\* Fill the blank with liquid phase *\/ */
+      /* for(int x=0 ; x<3 ; x++) */
+      /* 	{ */
+      /* 	  for(int y=0 ; y<Ny ; y++) */
+      /* 	    { */
+      /* 	      old_m[x][y]=ml; */
+      /* 	      old_rho[x][y]=rhol; */
+      /* 	    } */
+      /* 	} */
+
+#pragma omp parallel for default(shared)
+      /* Update density & magnetization */
       for(int x=1 ; x<Nx-1 ; x++)
 	{
 	  for(int y=1 ; y<Ny-1 ; y++)
 	    {
-
-	      rho[x][y] = old_rho[x][y] - c_adv*(old_m[x+1][y]-old_m[x-1][y]) + c_diff*(old_rho[x-1][y] + old_rho[x+1][y]  + old_rho[x][y-1]  + old_rho[x][y+1]  - 4*old_rho[x][y]);
+	      double betaphi = beta*old_m[x][y]/old_rho[x][y];
+	      
+	      rho[x][y] = old_rho[x][y] 
+		- c_adv*(old_m[x+1][y]-old_m[x-1][y]) // Advection 
+		+ c_diff*(old_rho[x-1][y] // Diffusion
+			  + old_rho[x+1][y]
+			  + old_rho[x][y-1]
+			  + old_rho[x][y+1]
+			  - 4*old_rho[x][y]);
 
 	      m[x][y] = old_m[x][y]
 		- c_adv*(old_rho[x+1][y]-old_rho[x-1][y])
@@ -122,15 +244,8 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 			  + old_m[x][y-1]
 			  + old_m[x][y+1]
 			  - 4*old_m[x][y])
-		+ (c_m - 2.*r/old_rho[x][y])*dt*old_m[x][y]
-		- c_m3*old_m[x][y]*old_m[x][y]*old_m[x][y]/(old_rho[x][y]*old_rho[x][y]);
-	  
-	  /*     /\* if(rho[x]<DBL_EPSILON) *\/ */
-	  /*     /\*   { *\/ */
-	  /*     /\*     rho[x]=0.; *\/ */
-	  /*     /\*     m[x]=0.; *\/ */
-	  /*     /\*   } *\/ */
-						 
+		+ 2.*dt*gamma*(old_rho[x][y]*sinh(betaphi)
+			       - old_m[x][y]*cosh(betaphi));
 	    }
 	}
 
@@ -138,9 +253,12 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
       // Top & bottom rows
       for(int x=0 ; x<Nx ; x++)
 	{
+
+	  //	  printf("%d \n", x);
 	  rho[x][0] = rho[x][Ny-2];
 	  m[x][0] = m[x][Ny-2];
 
+	  //	  printf("rho[%d][1] = %lg\n", x, rho[x][1]);
 	  rho[x][Ny-1] = rho[x][1];
 	  m[x][Ny-1] = m[x][1];
 	}
@@ -158,28 +276,71 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
       if(t>=clap)
 	{
 	  clap+=Nout;
-	  printf("%f\n", t*dt);
-	  for(int x=1 ; x<Nx-1 ; x++)
-	    {
+	  /* printf("%f\n", t*dt); */
 
-	      for(int y=1 ; y<Ny-1 ; y++)
+	  /* /\* Find horizontal range spanned by the droplet *\/ */
+	  /* int x=0; */
+	  /* while(m[x][Ny2]*m[x+1][Ny2]>0) */
+	  /*   { */
+	  /*     x++; */
+	  /*   } */
+	  /* int xmin = x; */
+	  /* //	  printf("xmin = %d\n", xmin); */
+
+	  /* x+=10; */
+	  /* while(m[x][Ny2]<-1e-1) */
+	  /*   { */
+	  /*     x++; */
+	  /*   } */
+	  /* int xmax = x; */
+	  /* //	  printf("xmax = %d\n", xmax);	   */
+
+	  /* /\* Find vertical range spanned by the droplet *\/	   */
+	  /* int Lmax=0; */
+
+	  /* for(int x=xmin ; x<xmax ; x++) */
+	  /*   { */
+	  /*     int sum=0; */
+	  /*     for(int y=1 ; y<Ny ; y++) */
+	  /* 	{ */
+	  /* 	  if(m[x][y]<0) */
+	  /* 	    sum+=1; */
+	  /* 	} */
+
+	  /*     if(sum>Lmax) */
+	  /* 	Lmax=sum; */
+	  /*   } */
+
+	  /* int ymin = Ny2 - ((int) floor(Lmax/2)); */
+	  /* int ymax = Ny2 + ((int) floor(Lmax/2)); */
+	  /* //	  printf("Lmax = %d\nymin = %d\nymax = %d\n", Lmax, ymin, ymax);	  	   */
+
+	  /* Create output files */
+	  char f_name_m[200];
+	  int pos_m = 0;
+	  pos_m += sprintf(&f_name_m[pos_m], "f_m_t%d.dat", (int) floor(t*dt));
+	  f_m=fopen(f_name_m, "w");
+
+	  char f_name_rho[200];
+	  int pos_rho = 0;
+	  pos_rho += sprintf(&f_name_rho[pos_rho], "f_rho_t%d.dat", (int) floor(t*dt));
+	  f_rho=fopen(f_name_rho, "w");
+
+	  
+	  for(int x=1 ; x<Nx-1 ; x++) //for(int x=(xmin-100)%Nx ; x<(xmax+100)%Nx ; x++)
+	    {
+	      fprintf(f_rho, "%d ", x+x0);
+	      fprintf(f_m, "%d ", x+x0);
+
+	      for(int y=1 ; y<Ny-1 ; y++) //for(int y=(ymin-100)%Ny ; y<(ymax+100)%Ny ; y++)
 		{
 		  /* char *rho_xy=(char*)malloc(50 * sizeof(char)); */
 		  /* sprintf(rho_xy, "%f", rho[x][y]); */
 		  /* printf("%s ", rho_xy); */
 
-		  double rho_xy=rho[x][y];
-		  if(isinf(rho_xy))
-		    {
-		      exit(0);
-		    }
-			  
-		  else
-		    {
-		      //printf("%f ", rho_xy);
-		      fprintf(f_rho, "%f ", rho[x][y]);
-		      fprintf(f_m, "%f ", m[x][y]);
-		    }
+		  //printf("%f ", rho_xy);
+		  fprintf(f_rho, "%f ", rho[x][y]);
+		  fprintf(f_m, "%f ", m[x][y]);
 
 		}
       
@@ -190,13 +351,14 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
   
 	  fprintf(f_rho, "\n");
 	  fprintf(f_m, "\n");
+
+	  fclose(f_rho);
+	  fclose(f_m);
+
 	}
 	
       t++;
     }
-  
-  fclose(f_rho);
-  fclose(f_m);
     
   free_dmatrix(rho);
   free_dmatrix(m);
@@ -222,13 +384,13 @@ int main(void)
   double D;
   double v;
   double rhol;
-  double r;
-
+  double gamma;
+  
   double rhof;
 
-  fscanf(f_input, "tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg r = %lg rhof = %lg", &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &r, &rhof);
+  fscanf(f_input, "tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg", &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof);
 
-  solve_HD_out(lx, ly, tmax, dt, ds, beta, r, D, v, rhol, tgap, rhof);
+  solve_HD_out(lx, ly, tmax, dt, ds, beta, D, v, rhol, gamma, tgap, rhof);
 
   fclose(f_input);
 

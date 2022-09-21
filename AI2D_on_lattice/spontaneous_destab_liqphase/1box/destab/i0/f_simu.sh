@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #SBATCH --job-name=td1n
-#SBATCH -t 7-00:00:00
+#SBATCH -t 13-00:00:00
 #SBATCH -n 8
 #SBATCH --partition=normalx
 
@@ -21,7 +21,7 @@ cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqph
 cd /home/$mydir # go in the in the working dir
 
 export OMP_NUM_THREADS=8
-srun nice -n 19 ./activeIsing
+time srun nice -n 19 ./activeIsing
 
 cp f_profiles*  $mydir0 # copy the result files in your own dir
 cp f_td.dat  $mydir0 # copy the result files in your own dir

@@ -40,12 +40,13 @@ int main(void)
   	
   FILE *f_input, *f_mag;
   FILE *f_profiles_rho, *f_profiles_m;
-  FILE *f_td;
   
   f_input=fopen("f_input.dat", "r");
 
   f_mag=fopen("f_mag.dat", "w");
-  f_td=fopen("f_td.dat", "w");
+
+  f_profiles_rho=fopen("f_profiles_rho.dat", "w");
+  f_profiles_m=fopen("f_profiles_m.dat", "w");
   
   /****************** Random initialization **********/
 	
@@ -119,142 +120,97 @@ int main(void)
       phi = tanh(beta*phi);
     }
 
-  printf("%f\n", phi);
   
-  /* Output Nd destabilizations profiles */
-
-  int Nd=50;
-  for(int it_Nd=0 ; it_Nd<Nd ; it_Nd++)
+  for(j=0 ; j<ly ; j++)
     {
-
-      /* Create output files */
-      char f_name_m[200];
-      int pos_m = 0;
-      pos_m += sprintf(&f_name_m[pos_m], "f_profiles_m_run%d.dat", it_Nd);
-
-      f_profiles_m=fopen(f_name_m, "w");
-
-      char f_name_rho[200];
-      int pos_rho = 0;
-      pos_rho += sprintf(&f_name_rho[pos_rho], "f_profiles_rho_run%d.dat", it_Nd);
-
-      f_profiles_rho=fopen(f_name_rho, "w");
-      
-      for(j=0 ; j<ly ; j++)
+      for(i=0 ; i<lx ; i++)
 	{
-	  for(i=0 ; i<lx ; i++)
-	    {
-	      local_m[j][i]=0;
-	      local_rho[j][i]=0;
-	    }
+	  local_m[j][i]=0;
+	  local_rho[j][i]=0;
 	}
-
-      /* Set initial condition */
-      for(i=0 ; i<N ; i++)
-	{
-	  x_i0=(int) floor(lx*genrand32_real2(rng));
-	  x[i]=x_i0;
-
-	  y_i0=(int) floor(ly*genrand32_real2(rng));
-	  y[i]=y_i0;
-      
-	  s[i]=1;
-	  p=genrand32_real2(rng);
-	  if(p>(1-phi)/(1-phi))
-	    s[i]=-1;
-	  
-	  local_m[y_i0][x_i0]+=s[i];
-	  local_rho[y_i0][x_i0]+=1;
-	  tot_mag+=s[i];
-	}
-
-      tot_mag=0;
-      t=0.;
-      clap=0.;
-
-      double t_reset=0;
-      double t_destab=99999999999;
-      int not_destab=1;
-      double row_mag;
-      double row_mag_min;
-  
-      while(t<t_destab) /* TEMPORAL LOOP */
-	{
-	  /* SHUFFLE IN BOX */ 
-	  tot_mag=computeLocalQuantities(lx, ly, N, x, y, s, local_m, local_rho);
-
-	  /* COMPUTE DISPLACEMENT */
-	  updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
-
-	  if(t>=clap)
-	    {
-	     if(t>=t_reset)
-		{
-		  fseek(f_profiles_m, 0, SEEK_SET);
-		  fseek(f_profiles_rho, 0, SEEK_SET);
-		  t_reset+=100;
-		}
-	      
-	      /* Output magnetization in each box */
-	      row_mag_min=0;
-	      for(j=0 ; j<ly ; j++)
-		{
-
-		  row_mag=0;
-		  for(i=0 ; i<lx ; i++)
-		    {
-
-		      if(i==0)
-			{
-			  fprintf(f_profiles_m, "%.2f %d ", t, local_m[j][i]);
-			  fprintf(f_profiles_rho, "%.2f %d ", t, local_rho[j][i]);
-			}
-
-		      else
-			{
-			  fprintf(f_profiles_m, "%d ", local_m[j][i]);
-			  fprintf(f_profiles_rho, "%d ", local_rho[j][i]);
-			}
-
-		      row_mag+=local_m[j][i];
-		    }
-
-		  if(row_mag<row_mag_min)
-		    row_mag_min=row_mag;
-
-		  fprintf(f_profiles_m, "\n");
-		  fprintf(f_profiles_rho, "\n");	
-		 
-		}
-
-	      fprintf(f_profiles_m, "\n\n");
-	      fprintf(f_profiles_rho, "\n\n");
-	      
-	      if((row_mag_min<0.7*phi*rho0*lx)&&(not_destab==1)) // If destabilization occured
-		{
-		  t_destab=t+50;
-		  not_destab=0;
-		  fprintf(f_td, "%f ", t); // Output destab time
-		}
-      
-	      fprintf(f_mag, "%f %f\n", t, tot_mag);
-	      fflush(f_mag);
-	      
-	      clap+=tgap;
-	    }
-	  
-	  t+=dt;
-	  
-	} /* END WHILE */
-      
     }
 
-  /* ----------------------------------------------------------------------*/	
-  /******************* CLOSE FILES ************************/
+  /* Set initial condition */
+  for(i=0 ; i<N ; i++)
+    {
+      x_i0=(int) floor(lx*genrand32_real2(rng));
+      x[i]=x_i0;
+
+      y_i0=(int) floor(ly*genrand32_real2(rng));
+      y[i]=y_i0;
+      
+      s[i]=1;
+      p=genrand32_real2(rng);
+      if(p>(1-phi)/(1-phi))
+	s[i]=-1;
+	  
+      local_m[y_i0][x_i0]+=s[i];
+      local_rho[y_i0][x_i0]+=1;
+      tot_mag+=s[i];
+    }
+
+  tot_mag=0;
+  t=0.;
+  clap=0.;
+  double t1=0;
+
+  while(1) /* TEMPORAL LOOP */
+    {
+      /* SHUFFLE IN BOX */ 
+      tot_mag=computeLocalQuantities(lx, ly, N, x, y, s, local_m, local_rho);
+
+      /* COMPUTE DISPLACEMENT */
+      updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
+
+      if(t>=clap)
+	{
+
+	  /* Output magnetization in each box */
+	  for(j=0 ; j<ly ; j++)
+	    {
+
+	      for(i=0 ; i<lx ; i++)
+		{
+
+		  if(i==0)
+		    {
+		      fprintf(f_profiles_m, "%.2f %d ", t, local_m[j][i]);
+		      fprintf(f_profiles_rho, "%.2f %d ", t, local_rho[j][i]);
+		    }
+
+		  else
+		    {
+		      fprintf(f_profiles_m, "%d ", local_m[j][i]);
+		      fprintf(f_profiles_rho, "%d ", local_rho[j][i]);
+		    }
+
+		}
+
+	      fprintf(f_profiles_m, "\n");
+	      fprintf(f_profiles_rho, "\n");	
+		 
+	    }
+
+	  fprintf(f_profiles_m, "\n\n");
+	  fprintf(f_profiles_rho, "\n\n");
+      
+	      
+	  clap+=tgap;
+	}
+
+      if(t>=t1)
+	{
+	  t1+=100;
+	  fprintf(f_mag, "%f %f\n", t, tot_mag);
+	  fflush(f_mag);
+	}
+      
+      t+=dt;
+	  
+    } /* END WHILE */
+      
 
   fclose(f_input);
-
-  fclose(f_td);
   
   fclose(f_mag);
   
