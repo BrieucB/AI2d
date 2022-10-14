@@ -18,16 +18,19 @@ do
     cd i$i
 
     cat <<EOF > f_input.dat
-tgap = 10000 tmax = 200000 rho0 = 8 lx = 100 ly = 100 w0 = 1 beta = 2 v = 1 D = 0.2
+tgap = 10000 tmax = 20000 rho0 = 8 lx = 100 ly = 100 w0 = 1 beta = 2 v = 1 D = 0.2
 EOF
 
     cat <<EOF > f_simu.sh
 #!/usr/bin/bash
-#SBATCH --job-name=td1n
-#SBATCH -t 13-00:00:00
-#SBATCH -n 8
-#SBATCH --partition=normalx
-
+#SBATCH --job-name=td2d
+#SBATCH -t 7-00:00:00
+#SBATCH --partition=multix96
+#SBATCH --nodelist=phoenix7
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --threads-per-core=1
+#SBATCH --cpus-per-task=8
 hostname
 
 mydir0=\$(pwd); # save the current dir name in a variable 

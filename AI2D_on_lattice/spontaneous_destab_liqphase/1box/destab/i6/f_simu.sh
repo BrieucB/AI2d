@@ -1,9 +1,12 @@
 #!/usr/bin/bash
-#SBATCH --job-name=td1n
-#SBATCH -t 13-00:00:00
-#SBATCH -n 8
-#SBATCH --partition=normalx
-
+#SBATCH --job-name=td2d
+#SBATCH -t 7-00:00:00
+#SBATCH --partition=multix96
+#SBATCH --nodelist=phoenix7
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --threads-per-core=1
+#SBATCH --cpus-per-task=8
 hostname
 
 mydir0=$(pwd); # save the current dir name in a variable 

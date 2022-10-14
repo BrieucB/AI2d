@@ -95,7 +95,10 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
   /*   } */
   
   FILE *f_rho, *f_m;
+  FILE *f_track;
 
+  f_track=fopen("f_track.dat", "w");
+  
   /* f_rho=fopen("f_rho_t0.dat", "w"); */
   /* f_m=fopen("f_m_t0.dat", "w"); */
 
@@ -128,7 +131,7 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
   double t=0;
   int x0=0;
 
-  
+
   int t1=0;
 
   start=omp_get_wtime();//clock();
@@ -140,7 +143,8 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 	{
 	  end=omp_get_wtime();//clock();
 	  double time_taken = ((double) end-start);
-	  printf("%d %f SEC\n", (int) floor(t*dt), time_taken);
+	  fprintf(f_track, "%d %f SEC\n", (int) floor(t*dt), time_taken);
+	  fflush(f_track);
 	  t1+=10;
 	}
       
@@ -354,12 +358,14 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 
 	  fclose(f_rho);
 	  fclose(f_m);
-
+	  
 	}
 	
       t++;
     }
-    
+
+  fclose(f_track);
+
   free_dmatrix(rho);
   free_dmatrix(m);
 

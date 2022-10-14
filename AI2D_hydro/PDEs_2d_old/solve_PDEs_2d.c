@@ -9,7 +9,7 @@
 #include "exit_if.h"
 #include "erreurs.h"
 
-void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, double r, double D, double v, double rhol, double tgap, double rhof)
+void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, double D, double v, double gamma, double rhol, double tgap, double rhof)
 {
   int Nt= (int) floor(tmax/dt);
 
@@ -24,10 +24,13 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 
   double c_diff=D*(dt/(ds*ds));
   double c_adv=(v/2.)*(dt/ds);
-  double c_m=2.*(beta-1.);
-  double c_m3=dt*beta*beta*(1.-beta/3.);
-
-  double ml=rhol*sqrt(2.*(beta-1.-r/rhol)/(beta*beta*(1.-beta/3.)));
+  
+  double phil = 0.5;
+  for(int p=0 ; p<100 ; p++)
+    {
+      phil=tanh(beta*phil);
+    }
+  double ml=rhol*phil;
     
   double **rho = dmatrix((long) Nx, (long) Ny);
   double **m = dmatrix((long) Nx, (long) Ny);
@@ -49,8 +52,10 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 
 	}
     }
+
+  printf("Nx2 = %d, rhol = %f, ml = %f\n", Nx2, rhol, ml);
   
-  double r0=5;
+  double r0=2;
   for(int x=Nx2-((int) floor(r0/ds))+1 ; x<Nx2+((int) floor(r0/ds)); x++)
     {
       double dsx=((double) x- (double) Nx2);
@@ -58,12 +63,18 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
       for(int y=Ny2-((int) floor(r0/ds))+1 ; y<Ny2+((int) floor(r0/ds)) ; y++)
 	{
 	  double dsy=((double) y - (double) Ny2);
+	  /* printf("x = %d, y = %d\n", x, y); */
 	  if(ds*ds*(dsx*dsx+dsy*dsy)<=r0*r0)
 	    {
 	      rho[x][y] += (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0)));
 	      m[x][y] -= (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); // ADD A BLOB OF density rhof : change normalization constant in 1d
+/* 	      printf("val = %f\n", (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0)))); */
+/* 	      printf("val_m = %f\n\n",ml- (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy\ */
+/* )/(r0*r0)))); */
 	    }
+	  
 	}
+      /* printf("\n\n"); */
     }
 
   
@@ -94,26 +105,35 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 
       
   int t=0;
+  clap+=Nout;
   while(t<Nt)
     {
-
-      for(int x=0; x<Nx ; x++)
-	{
+      //#pragma omp parallel for default(shared)      
+      /* for(int x=0; x<Nx ; x++) */
+      /* 	{ */
   
-	  memcpy(old_rho[x], rho[x], Ny*sizeof(double));
-	  memcpy(old_m[x], m[x], Ny*sizeof(double));
-	}
+      /* 	  memcpy(old_rho[x], rho[x], Ny*sizeof(double)); */
+      /* 	  memcpy(old_m[x], m[x], Ny*sizeof(double)); */
+      /* 	} */
 
-      /* memcpy(old_rho, rho, Ny*sizeof(*rho)); */
-      /* memcpy(old_m, m, Ny*sizeof(*m)); */
-
+      memcpy(old_rho[0], rho[0], (Nx*Ny)*sizeof(double));
+      memcpy(old_m[0], m[0], (Nx*Ny)*sizeof(double));
+      /* printf("dt = %lg beta = %lg gamma = %lg c_adv = %lg c_diff = %lg\n", dt, beta, gamma, c_adv, c_diff); */
       
+#pragma omp parallel for default(shared)
       for(int x=1 ; x<Nx-1 ; x++)
 	{
 	  for(int y=1 ; y<Ny-1 ; y++)
 	    {
-
-	      rho[x][y] = old_rho[x][y] - c_adv*(old_m[x+1][y]-old_m[x-1][y]) + c_diff*(old_rho[x-1][y] + old_rho[x+1][y]  + old_rho[x][y-1]  + old_rho[x][y+1]  - 4*old_rho[x][y]);
+	      double betaphi = beta*old_m[x][y]/old_rho[x][y];
+	      
+	      rho[x][y] = old_rho[x][y]
+		- c_adv*(old_m[x+1][y]-old_m[x-1][y]) // Advection                        
+		+ c_diff*(old_rho[x-1][y] // Diffusion                                        
+			  + old_rho[x+1][y]
+			  + old_rho[x][y-1]
+			  + old_rho[x][y+1]
+			  - 4*old_rho[x][y]);
 
 	      m[x][y] = old_m[x][y]
 		- c_adv*(old_rho[x+1][y]-old_rho[x-1][y])
@@ -122,8 +142,27 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 			  + old_m[x][y-1]
 			  + old_m[x][y+1]
 			  - 4*old_m[x][y])
-		+ (c_m - 2.*r/old_rho[x][y])*dt*old_m[x][y]
-		- c_m3*old_m[x][y]*old_m[x][y]*old_m[x][y]/(old_rho[x][y]*old_rho[x][y]);
+		+ 2.*dt*gamma*(old_rho[x][y]*sinh(betaphi)
+			       - old_m[x][y]*cosh(betaphi));
+	      /* printf("%d %d %f\n", x, y, m[x][y]); */
+	    }
+	}
+      /* for(int x=1 ; x<Nx-1 ; x++) */
+      /* 	{ */
+      /* 	  for(int y=1 ; y<Ny-1 ; y++) */
+      /* 	    { */
+
+      /* 	      rho[x][y] = old_rho[x][y] - c_adv*(old_m[x+1][y]-old_m[x-1][y]) + c_diff*(old_rho[x-1][y] + old_rho[x+1][y]  + old_rho[x][y-1]  + old_rho[x][y+1]  - 4*old_rho[x][y]); */
+
+      /* 	      m[x][y] = old_m[x][y] */
+      /* 		- c_adv*(old_rho[x+1][y]-old_rho[x-1][y]) */
+      /* 		+ c_diff*(old_m[x-1][y] */
+      /* 			  + old_m[x+1][y] */
+      /* 			  + old_m[x][y-1] */
+      /* 			  + old_m[x][y+1] */
+      /* 			  - 4*old_m[x][y]) */
+      /* 		+ (c_m - 2.*r/old_rho[x][y])*dt*old_m[x][y] */
+      /* 		- c_m3*old_m[x][y]*old_m[x][y]*old_m[x][y]/(old_rho[x][y]*old_rho[x][y]); */
 	  
 	  /*     /\* if(rho[x]<DBL_EPSILON) *\/ */
 	  /*     /\*   { *\/ */
@@ -131,8 +170,8 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 	  /*     /\*     m[x]=0.; *\/ */
 	  /*     /\*   } *\/ */
 						 
-	    }
-	}
+	/*     } */
+	/* } */
 
       /* PADDING */
       // Top & bottom rows
@@ -158,7 +197,7 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
       if(t>=clap)
 	{
 	  clap+=Nout;
-	  printf("%f\n", t*dt);
+	  printf("%d\n", t);
 	  for(int x=1 ; x<Nx-1 ; x++)
 	    {
 
@@ -222,13 +261,16 @@ int main(void)
   double D;
   double v;
   double rhol;
-  double r;
+  double gamma;
 
   double rhof;
 
-  fscanf(f_input, "tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg r = %lg rhof = %lg", &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &r, &rhof);
+  fscanf(f_input, "tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg", &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof);
 
-  solve_HD_out(lx, ly, tmax, dt, ds, beta, r, D, v, rhol, tgap, rhof);
+  printf("tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg", tgap, tmax, dt, lx, ly, ds, rhol, beta, v, D, gamma, rhof);
+
+  
+  solve_HD_out(lx, ly, tmax, dt, ds, beta, D, v, gamma, rhol, tgap, rhof);
 
   fclose(f_input);
 
