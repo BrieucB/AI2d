@@ -21,9 +21,8 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   
   // FILES
-  FILE *f_input, *f_rho, *f_m, *f_track;
+  FILE *f_input, *f_rho, *f_m;
   f_input=fopen("f_input.dat", "r");
-  f_track=fopen("f_track.dat", "w");
 
   // PARAMETERS
   int lx, ly;
@@ -44,8 +43,7 @@ int main(int argc, char** argv)
   
   fscanf(f_input, "ncpu = %d nby_box = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg", &ncpu, &nby_box, &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof);
 
-  if(rank==0)
-    printf("ncpu = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg\n", ncpu, tgap, tmax, dt, lx, ly, ds, rhol, beta, v, D, gamma, rhof);
+  /* printf("ncpu = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg\n", ncpu, tgap, tmax, dt, lx, ly, ds, rhol, beta, v, D, gamma, rhof); */
   
 
   if(ncpu!=numtasks)
@@ -84,8 +82,8 @@ int main(int argc, char** argv)
   /* Increments */
   int y;
   
-  if(rank==0)
-    printf("Nx = %d, Ny = %d, Nx_box = %d, Ny_box = %d\n", Nx, Ny, Nx_box, Ny_box);
+  /* if(rank==0) */
+  /*   printf("Nx = %d, Ny = %d, Nx_box = %d, Ny_box = %d\n", Nx, Ny, Nx_box, Ny_box); */
   
   double **rho_loc = dmatrix((long) Nx_box +2, (long) Ny_box +2);
   double **m_loc = dmatrix((long) Nx_box +2, (long) Ny_box +2);
@@ -136,29 +134,46 @@ int main(int argc, char** argv)
   /* Initialize fields */
   initFields(rank, rho_tot, m_tot, m_rec, Nx, Ny, Ny2, Nx_box, Ny_box, ds, rhof, rhol,ml);
 
+  if(rank==0)
+    printf("Init done\n");
+
   /* Scatter fields among the cpus */
   scatterTotalMatrices(rank, Nx_box, Ny_box, Ny, nbx_box, nby_box, ncpu, m_tot, rho_tot, rho_loc, m_loc, rho_rec, m_rec);
 
+  MPI_Barrier(MPI_COMM_WORLD);
   if(rank==0)
-    printf("OK1\n");
+    printf("Scattering done\n");
+
   
   /* printMatBorders(ncpu, rank, rho_loc, m_loc, m_rec, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
 
   /* Send the borders for the cpus to communicate */
   sendBorders(rank, m_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder);
+  MPI_Barrier(MPI_COMM_WORLD);
+  if(rank==0)
+    printf("OK\n");
   sendBorders(rank, rho_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder);
 
+  
   if(rank==0)
-    printf("OK2\n");
+    printf("Borders sent\n");
 
   /* printMatBorders(ncpu, rank, rho_loc, m_loc, m_rec, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
 
   /* Print the initial field matrix */
   int t=0;
-  /* gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
+  gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny);
+
+  if(rank==0)
+    printf("Fields gathered\n");
+
   
-  /* outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot); */
+  outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot);
+
   
+  if(rank==0)
+    printf("Fields written\n");
+
   /* Initial position of the fluctuation's front */
   if(rank==0)
     {
@@ -176,17 +191,11 @@ int main(int argc, char** argv)
   MPI_Bcast(&box0, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int t1=0;
-  
   /* Temporal loop */
   for(t=0 ; t<Nt ; t++)
     {
-      if((int) floor(t*dt)>=t1)
-	{
-	  fprintf(f_track,"%d\n", (int) floor(t*dt));
-	  fflush(f_track);
-	  t1+=10;
-	}
+      printf("%f\n", t*dt);
+
       /* updateFields(Nx_box, Ny_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt); */
 
       updateFieldsNoTail(Nx_box, Ny_box, nbx_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt, rank, box0, x0, ml, rhol, rank_x, shift, x0_shifted, box_x, x0_rel, x01, x01_rel, box_x1);
@@ -260,23 +269,6 @@ int main(int argc, char** argv)
       
     }
 
-  gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny);
-
-  /* Output minimal magnetization */
-  if(rank==0)
-    {
-      double fmin=1;
-      for(x0=0 ; x0<Nx ; x0++)
-	{
-	  if(m_tot[x0][Ny2]<fmin)
-	    fmin=m_tot[x0][Ny2];
-	}
-      
-      printf("%f\n", fmin);
-
-    }
-  
-  
   // CLOSE FILES
   fclose(f_input);
   

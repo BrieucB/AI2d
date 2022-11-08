@@ -1,28 +1,29 @@
 #!/usr/bin/bash
 
+make clean ; make
 
-mkdir droplet_size_ds
-cd droplet_size_ds
+mkdir droplet_size_beta_D0.5
+cd droplet_size_beta_D0.5
 
 ncpu=32
 
 cp ../f_soumis.sh .
 
-for ds in 0.1 0.3 0.5 0.7 0.9
+for beta in 1.2 1.4 1.6 1.8 2.0 #1.1 1.3 1.5 1.7 1.9 2.1 2.3 2.5 2.6 2.8 3.0
 
 do
-    mkdir ds$ds
-    cd ds$ds
+    mkdir beta$beta
+    cd beta$beta
 
     cat <<EOF > f_input.dat
-tgap = 2000 tmax = 2100 dt = 0.01 lx = 2000 ly = 1000 ds = 1 rhol = 1 beta = 2 v = 1 D = 0.5 gamma = 1 rhof = 10
+tgap = 5000 tmax = 5100 dt = 0.05 lx = 5500 ly = 2200 ds = 1 rhol = 1 beta = $beta v = 1 D = 0.5 gamma = 1 rhof = 10
 EOF
 
     cat <<EOF > f_simu.sh
 #!/usr/bin/bash
 #SBATCH --job-name=pde1${beta}
 #SBATCH -t 6-00:00:00
-#SBATCH --partition=multix96
+#SBATCH --partition=multix64
 #SBATCH --exclude=phoenix8
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -31,8 +32,6 @@ EOF
 hostname
 
 mydir0=\$(pwd); # save the current dir name in a variable 
-
-make clean ; make
 
 echo \${mydir0};
 

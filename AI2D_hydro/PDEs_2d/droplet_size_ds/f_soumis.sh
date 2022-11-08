@@ -15,7 +15,7 @@ do
     cd ds$ds
 
     cat <<EOF > f_input.dat
-tgap = 2000 tmax = 2100 dt = 0.01 lx = 2000 ly = 1000 ds = 1 rhol = 1 beta = 2 v = 1 D = 0.5 gamma = 1 rhof = 10
+tgap = 2000 tmax = 2100 dt = 0.01 lx = 2000 ly = 1000 ds = $ds rhol = 1 beta = 2 v = 1 D = 0.5 gamma = 1 rhof = 10
 EOF
 
     cat <<EOF > f_simu.sh
@@ -23,7 +23,7 @@ EOF
 #SBATCH --job-name=pde1${beta}
 #SBATCH -t 6-00:00:00
 #SBATCH --partition=multix96
-#SBATCH --exclude=phoenix8
+#SBATCH --exclude=phoenix8,phoenix6,phoenix7
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --threads-per-core=1
