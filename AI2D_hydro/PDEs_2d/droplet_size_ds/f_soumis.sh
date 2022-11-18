@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 
-
 mkdir droplet_size_ds
 cd droplet_size_ds
 
@@ -8,22 +7,21 @@ ncpu=32
 
 cp ../f_soumis.sh .
 
-for ds in 0.1 0.3 0.5 0.7 0.9
+for ds in 0.35 0.25 0.2 0.15
 
 do
     mkdir ds$ds
     cd ds$ds
 
     cat <<EOF > f_input.dat
-tgap = 2000 tmax = 2100 dt = 0.01 lx = 2000 ly = 1000 ds = $ds rhol = 1 beta = 2 v = 1 D = 0.5 gamma = 1 rhof = 10
+tgap = 2000 tmax = 2100 dt = 0.01 lx = 1500 ly = 600 ds = $ds rhol = 1 beta = 2 v = 1 D = 0.5 gamma = 1 rhof = 10
 EOF
 
     cat <<EOF > f_simu.sh
 #!/usr/bin/bash
-#SBATCH --job-name=pde1${beta}
+#SBATCH --job-name=pde1${ds}
 #SBATCH -t 6-00:00:00
-#SBATCH --partition=multix96
-#SBATCH --exclude=phoenix8,phoenix6,phoenix7
+#SBATCH --partition=multix64,multix96
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --threads-per-core=1
@@ -31,8 +29,6 @@ EOF
 hostname
 
 mydir0=\$(pwd); # save the current dir name in a variable 
-
-make clean ; make
 
 echo \${mydir0};
 
@@ -42,9 +38,15 @@ mkdir -p /home/\$mydir # create a working directory specific for the current job
 
 cp \$mydir0/f_input.dat /home/\$mydir/  # copy the input file in the working dir
 
-cp /users/invites/benvegnen/Thesis/AI2D/AI2D_hydro/PDEs_2d/solve_PDEs_2d /home/\$mydir/  # copy the executable in the working dir
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_hydro/PDEs_2d/*.c /home/\$mydir/  # copy the *.c in the working dir
+
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_hydro/PDEs_2d/*.h /home/\$mydir/  # copy the *.h in the working dir
+
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_hydro/PDEs_2d/Makefile /home/\$mydir/  # copy the Makefile in the working dir
 
 cd /home/\$mydir # go to the working dir
+
+make clean ; make
 
 export OMP_NUM_THREADS=$ncpu
 

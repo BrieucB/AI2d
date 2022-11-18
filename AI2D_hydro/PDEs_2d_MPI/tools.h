@@ -48,7 +48,8 @@ void sendBorders(int,
 		 int *,
 		 int,
 		 int,
-		 MPI_Datatype
+		 MPI_Datatype,
+		 int
 		 );
 
 void updateFields(int,
@@ -122,7 +123,6 @@ void updateFieldsNoTail2(int,
 
 void printMatBorders(int,
 		     int,
-		     double **,
 		     double **,
 		     double **,
 		     int ,

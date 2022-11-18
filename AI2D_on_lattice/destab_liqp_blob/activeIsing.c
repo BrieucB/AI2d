@@ -67,15 +67,7 @@ int main(void)
 	
   if(fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg", &tgap, &tmax, &rho0, &lx, &ly, &w0, &beta, &v, &D, &h0)!=10){exit(1);};
 
-  /************* Rescale parameters by detection surface **************/
-
-  D=9.*D;
-  rho0=rho0/9.;
-  lx=3*lx;
-  ly=3*ly;
-  v=3*v;
-
-  int sigma0=3;
+  int sigma0=1;
   
   N = (int) floor(rho0*lx*ly);
   int Nfluct = (int) floor(rho0*sigma0*sigma0*h0);
@@ -160,9 +152,8 @@ int main(void)
       int lx2 = (int) floor(((double)lx)/2);
       int ly2 = (int) floor(((double)ly)/2);
 
-      while( (t<tblob) || ( (frac_rev>=frac_rev0) && (frac_rev<0.1) ) ) /* TEMPORAL LOOP */
+      while( (t<tblob) || ( (frac_rev>frac_rev0) && (frac_rev<0.1) ) ) /* TEMPORAL LOOP */
 	{
-      
 	  /* ADD A FLUCTUATION */
 	  if((t>=tblob)&&(t<tblob+dt))
 	    {
@@ -178,9 +169,9 @@ int main(void)
 		  y[i]=y_i0;
 	      
 		  s[i]=-1;
-		  p=genrand32_real2(rng);
-		  if(p>fabs(tot_mag))
-		    s[i]=1;
+		  /* p=genrand32_real2(rng); */
+		  /* if(p>fabs(tot_mag)) */
+		  /*   s[i]=1; */
 	      
 		  local_m[y_i0][x_i0]+=s[i];
 		  local_rho[y_i0][x_i0]+=1;
@@ -191,7 +182,7 @@ int main(void)
 	  if((t>=tblob)&&(t<tblob+dt))
 	    {
 	      frac_rev0=frac_rev;
-	      //	  printf("%f \n", frac_rev0);
+
 	    }
       
 	  /* SHUFFLE IN BOX */ 
@@ -200,7 +191,7 @@ int main(void)
 	  /* COMPUTE DISPLACEMENT */
 	  updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
 
-	  /* /\* Save magnetization *\/ */
+	  /* Save magnetization */
 	  /* if(t>=t1) */
 	  /*   { */
 	  /*     t1+=0.1; */
@@ -212,37 +203,37 @@ int main(void)
 	  /* if(t>=clap) */
 	  /*   { */
 
-	  /*     for(i=0 ; i<lx ; i++) */
-	  /* 	{ */
-	  /* 	  avg_rho=0; */
-	  /* 	  avg_m=0; */
-	  /* 	  for(j=0 ; j<ly ; j++) */
-	  /* 	    { */
-	  /* 	      avg_rho+=local_rho[j][i]; */
-	  /* 	      avg_m+=local_m[j][i]; */
-	  /* 	    } */
+	  /*     /\*     for(i=0 ; i<lx ; i++) *\/ */
+	  /*     /\* 	{ *\/ */
+	  /*     /\* 	  avg_rho=0; *\/ */
+	  /*     /\* 	  avg_m=0; *\/ */
+	  /*     /\* 	  for(j=0 ; j<ly ; j++) *\/ */
+	  /*     /\* 	    { *\/ */
+	  /*     /\* 	      avg_rho+=local_rho[j][i]; *\/ */
+	  /*     /\* 	      avg_m+=local_m[j][i]; *\/ */
+	  /*     /\* 	    } *\/ */
 	      
-	  /* 	  fprintf(f_bands_rho, "%f ", ((double) avg_rho)/((double) ly)); */
-	  /* 	  fprintf(f_bands_m, "%f ", ((double) avg_m)/((double) ly)); */
+	  /*     /\* 	  fprintf(f_bands_rho, "%f ", ((double) avg_rho)/((double) ly)); *\/ */
+	  /*     /\* 	  fprintf(f_bands_m, "%f ", ((double) avg_m)/((double) ly)); *\/ */
 	      
-	    /* 	} */
+	  /*     /\* 	} *\/ */
 		  
-	    /*   /\* Save magnetization profile *\/ */
-	    /*   for(j=0 ; j<ly ; j++) */
-	    /* 	{ */
-	    /* 	  for (i=0 ; i<lx ; i++) */
-	    /* 	    { */
-	    /* 	      fprintf(f_profiles, "%f ", ((double)local_m[j][i])/9); */
-	    /* 	    } */
-	    /* 	  fprintf(f_profiles, "\n"); */
-	    /* 	} */
-	    /*   fprintf(f_profiles, "\n\n"); */
-	    /*   fflush(f_profiles); */
+	  /*     /\* Save magnetization profile *\/ */
+	  /*     for(j=0 ; j<ly ; j++) */
+	  /* 	{ */
+	  /* 	  for (i=0 ; i<lx ; i++) */
+	  /* 	    { */
+	  /* 	      fprintf(f_profiles, "%f ", ((double)local_m[j][i])); */
+	  /* 	    } */
+	  /* 	  fprintf(f_profiles, "\n"); */
+	  /* 	} */
+	  /*     fprintf(f_profiles, "\n\n"); */
+	  /*     fflush(f_profiles); */
 
-	    /*   fprintf(f_bands_rho, "\n"); */
-	    /*   fprintf(f_bands_m, "\n"); */
-	    /*   clap+=tgap; */
-	    /* }       */
+	  /*     /\*   fprintf(f_bands_rho, "\n"); *\/ */
+	  /*     /\*   fprintf(f_bands_m, "\n"); *\/ */
+	  /*     /\*   clap+=tgap; *\/ */
+	  /*   } */
 
 	  t+=dt;
 	  //      printf("%f %f\n", frac_rev0, frac_rev);

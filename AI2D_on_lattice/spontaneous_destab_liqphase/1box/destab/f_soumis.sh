@@ -18,15 +18,15 @@ do
     cd i$i
 
     cat <<EOF > f_input.dat
-tgap = 10000 tmax = 20000 rho0 = 8 lx = 100 ly = 100 w0 = 1 beta = 2 v = 1 D = 0.2
+tgap = 100000 tmax = 50000000 rho0 = 8 lx = 100 ly = 100 w0 = 1 beta = 2 v = 1 D = 0.2
 EOF
 
     cat <<EOF > f_simu.sh
 #!/usr/bin/bash
-#SBATCH --job-name=td2d
+#SBATCH --job-name=tdD$D
 #SBATCH -t 7-00:00:00
 #SBATCH --partition=multix96
-#SBATCH --nodelist=phoenix7
+#SBATCH --nodelist=phoenix5
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --threads-per-core=1
@@ -41,11 +41,17 @@ mydir=\${mydir0:7}
 
 mkdir -p /home/\$mydir # create a working directory specific for the current job on the host machine
 
-cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqphase/1box/f_input.dat /home/\$mydir/  # copy the input file in the working dir
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqphase/1box/*.c /home/\$mydir/  # copy the input file in the working dir
 
-cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqphase/1box/activeIsing /home/\$mydir/  # copy the executable in the working dir
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqphase/1box/f_input.dat /home/\$mydir/
+
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqphase/1box/*.h /home/\$mydir/  # copy the executable in the working dir
+
+cp /users/invites/benvegnen/Thesis/AI2D/AI2D_on_lattice/spontaneous_destab_liqphase/1box/Makefile /home/\$mydir/
 
 cd /home/\$mydir # go in the in the working dir
+
+make clean ; make
 
 export OMP_NUM_THREADS=8
 time srun nice -n 19 ./activeIsing
