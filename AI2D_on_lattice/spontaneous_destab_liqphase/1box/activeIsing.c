@@ -62,17 +62,6 @@ int main(void)
   if(fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg", &tgap, &tmax, &rho0, &lx, &ly, &w0, &beta, &v, &D)!=9){exit(1);};
 
   /************* Rescale parameters by detection surface **************/
-
-  /* D=9.*D; */
-  /* phi=3*phi; */
-  /* rho0=rho0/9.; */
-  /* rhol=rhol/9.; */
-  /* rhog=rhog/9.; */
-  /* lx=3*lx; */
-  /* ly=3*ly; */
-  /* v=3*v; */
-  
-  //  N = (int) floor(rho0*lx*ly);
   
   dt=1./(4.*D+v+w0*exp(beta));
 
@@ -120,95 +109,103 @@ int main(void)
       phi = tanh(beta*phi);
     }
 
-  
-  for(j=0 ; j<ly ; j++)
+  for(int it=0; it<100; it++)
     {
-      for(i=0 ; i<lx ; i++)
+      for(j=0 ; j<ly ; j++)
 	{
-	  local_m[j][i]=0;
-	  local_rho[j][i]=0;
-	}
-    }
-
-  /* Set initial condition */
-  for(i=0 ; i<N ; i++)
-    {
-      x_i0=(int) floor(lx*genrand32_real2(rng));
-      x[i]=x_i0;
-
-      y_i0=(int) floor(ly*genrand32_real2(rng));
-      y[i]=y_i0;
-      
-      s[i]=1;
-      p=genrand32_real2(rng);
-      if(p>(1-phi)/(1-phi))
-	s[i]=-1;
-	  
-      local_m[y_i0][x_i0]+=s[i];
-      local_rho[y_i0][x_i0]+=1;
-      tot_mag+=s[i];
-    }
-
-  tot_mag=0;
-  t=0.;
-  clap=0.;
-  double t1=0;
-
-  while(t<tmax) /* TEMPORAL LOOP */
-    {
-      /* SHUFFLE IN BOX */ 
-      tot_mag=computeLocalQuantities(lx, ly, N, x, y, s, local_m, local_rho);
-
-      /* COMPUTE DISPLACEMENT */
-      updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
-
-      if(t>=clap)
-	{
-
-	  /* Output magnetization in each box */
-	  for(j=0 ; j<ly ; j++)
+	  for(i=0 ; i<lx ; i++)
 	    {
-
-	      for(i=0 ; i<lx ; i++)
-		{
-
-		  if(i==0)
-		    {
-		      fprintf(f_profiles_m, "%.2f %d ", t, local_m[j][i]);
-		      fprintf(f_profiles_rho, "%.2f %d ", t, local_rho[j][i]);
-		    }
-
-		  else
-		    {
-		      fprintf(f_profiles_m, "%d ", local_m[j][i]);
-		      fprintf(f_profiles_rho, "%d ", local_rho[j][i]);
-		    }
-
-		}
-
-	      fprintf(f_profiles_m, "\n");
-	      fprintf(f_profiles_rho, "\n");	
-		 
+	      local_m[j][i]=0;
+	      local_rho[j][i]=0;
 	    }
+	}
 
-	  fprintf(f_profiles_m, "\n\n");
-	  fprintf(f_profiles_rho, "\n\n");
+      tot_mag=0;
+  
+      /* Set initial condition */
+      for(i=0 ; i<N ; i++)
+	{
+	  x_i0=(int) floor(lx*genrand32_real2(rng));
+	  x[i]=x_i0;
+
+	  y_i0=(int) floor(ly*genrand32_real2(rng));
+	  y[i]=y_i0;
+      
+	  s[i]=1;
+	  p=genrand32_real2(rng);
+	  if(p>(1-phi)/(1-phi))
+	    s[i]=-1;
+	  
+	  local_m[y_i0][x_i0]+=s[i];
+	  local_rho[y_i0][x_i0]+=1;
+	  tot_mag+=s[i];
+	}
+
+      t=0.;
+      clap=0.;
+      double t1=0;
+      tot_mag=0; // this variable actually contains the nm of reversed sites
+
+      while(tot_mag==0) /* TEMPORAL LOOP */
+	{
+
+	  /* SHUFFLE IN BOX */ 
+	  tot_mag=computeLocalQuantities(lx, ly, N, x, y, s, local_m, local_rho);
+
+	  /* COMPUTE DISPLACEMENT */
+	  updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
+
+	  /* if(t>=clap) */
+	  /*   { */
+	  /*     //printf("%f %f\n", t, tot_mag); */
+
+	  /*     /\* /\\* Output magnetization in each box *\\/ *\/ */
+	  /*     for(j=0 ; j<ly ; j++) */
+	  /* 	{ */
+
+	  /* 	  for(i=0 ; i<lx ; i++) */
+	  /* 	    { */
+
+	  /* 	      if(i==0) */
+	  /* 		{ */
+	  /* 		  fprintf(f_profiles_m, "%.2f %d ", t, local_m[j][i]); */
+	  /* 		  fprintf(f_profiles_rho, "%.2f %d ", t, local_rho[j][i]); */
+	  /* 		} */
+
+	  /* 	      else */
+	  /* 		{ */
+	  /* 		  fprintf(f_profiles_m, "%d ", local_m[j][i]); */
+	  /* 		  fprintf(f_profiles_rho, "%d ", local_rho[j][i]); */
+	  /* 		} */
+
+	  /* 	    } */
+
+	  /* 	  fprintf(f_profiles_m, "\n"); */
+	  /* 	  fprintf(f_profiles_rho, "\n"); */
+		 
+	  /* 	} */
+
+	  /*     fprintf(f_profiles_m, "\n\n"); */
+	  /*     fprintf(f_profiles_rho, "\n\n"); */
       
 	      
-	  clap+=tgap;
-	}
+	    /*   clap+=tgap; */
+	    /* } */
 
-      if(t>=t1)
-	{
-	  t1+=100;
-	  fprintf(f_mag, "%f %f\n", t, tot_mag);
-	  fflush(f_mag);
-	}
+	  /* if(t>=t1) */
+	  /*   { */
+	  /*     t1+=1000; */
+	  /*     fprintf(f_mag, "%f %f\n", t, tot_mag); */
+	  /*     fflush(f_mag); */
+	  /*   } */
       
-      t+=dt;
+	  t+=dt;
 	  
-    } /* END WHILE */
-      
+	} /* END WHILE */
+      fprintf(f_mag, "%f\n", t);
+      fflush(f_mag);
+    }  
+
 
   fclose(f_input);
   

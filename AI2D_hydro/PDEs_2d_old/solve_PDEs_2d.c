@@ -116,9 +116,18 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
       /* 	  memcpy(old_m[x], m[x], Ny*sizeof(double)); */
       /* 	} */
 
-      memcpy(old_rho[0], rho[0], (Nx*Ny)*sizeof(double));
-      memcpy(old_m[0], m[0], (Nx*Ny)*sizeof(double));
+      /* memcpy(old_rho[0], rho[0], (Nx*Ny)*sizeof(double)); */
+      /* memcpy(old_m[0], m[0], (Nx*Ny)*sizeof(double)); */
       /* printf("dt = %lg beta = %lg gamma = %lg c_adv = %lg c_diff = %lg\n", dt, beta, gamma, c_adv, c_diff); */
+
+      for(int x=0 ; x<Nx ; x++)
+	{
+	  for(int y=0 ; y<Ny ; y++)
+	    {
+	      old_m[x][y]=m[x][y];
+	      old_rho[x][y]=rho[x][y];
+	    }
+	}
       
 #pragma omp parallel for default(shared)
       for(int x=1 ; x<Nx-1 ; x++)
@@ -133,7 +142,7 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 			  + old_rho[x+1][y]
 			  + old_rho[x][y-1]
 			  + old_rho[x][y+1]
-			  - 4*old_rho[x][y]);
+			  - 4.*old_rho[x][y]);
 
 	      m[x][y] = old_m[x][y]
 		- c_adv*(old_rho[x+1][y]-old_rho[x-1][y])
@@ -141,7 +150,7 @@ void solve_HD_out(int lx, int ly, int tmax, double dt, double ds, double beta, d
 			  + old_m[x+1][y]
 			  + old_m[x][y-1]
 			  + old_m[x][y+1]
-			  - 4*old_m[x][y])
+			  - 4.*old_m[x][y])
 		+ 2.*dt*gamma*(old_rho[x][y]*sinh(betaphi)
 			       - old_m[x][y]*cosh(betaphi));
 	      /* printf("%d %d %f\n", x, y, m[x][y]); */

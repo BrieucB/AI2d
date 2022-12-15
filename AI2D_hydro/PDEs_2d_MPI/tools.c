@@ -95,7 +95,8 @@ void initFields(int rank,
 		double ds,
 		double rhof,
 		double rhol,
-		double ml
+		double ml,
+		double r0
 		)
 {
 
@@ -115,7 +116,6 @@ void initFields(int rank,
       /* Add a perturbation */
       int Nxfront=(int) floor((Nx)/2);
 
-      double r0=3;
       for(int x=Nxfront-((int) floor(r0/ds))+1 ; x<Nxfront+((int) floor(r0/ds)); x++)
         {
           double dsx=((double) x- (double) Nxfront);
@@ -128,7 +128,7 @@ void initFields(int rank,
               if(ds*ds*(dsx*dsx+dsy*dsy)<=r0*r0)
                 {
                   rho_tot[x][y] += (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0)));
-                  m_tot[x][y] -= (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); // ADD A BLOB OF density rhof : change normalization constant in 1d
+                  m_tot[x][y] -= (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); // ADD A BLOB OF containing rhof*pi*r0^2 particles
                 }
             }
         }
@@ -457,17 +457,8 @@ void updateFields(int Nx_box,
 {
 
   
-  /* for(int x=0; x<Nx_box+2 ; x++) */
-  /*   { */
-  /*     memcpy(rho_loc_old[x], rho_loc[x], (Ny_box+2)*sizeof(double)); */
-  /*     memcpy(m_loc_old[x], m_loc[x], (Ny_box+2)*sizeof(double)); */
-  /*   } */
-
   memcpy(rho_loc_old[0], rho_loc[0], (Ny_box+2)*(Nx_box+2)*sizeof(double));
   memcpy(m_loc_old[0], m_loc[0], (Ny_box+2)*(Nx_box+2)*sizeof(double));
-       
-  
-  /* printf("dt = %lg beta = %lg gamma = %lg c_adv = %lg c_diff = %lg\n", dt, beta, gamma, c_adv, c_diff); */
   
   for(int x=1 ; x<Nx_box+1 ; x++)
     {
@@ -756,7 +747,7 @@ void gatherFields(int ncpu,
       /* printf("\n"); */
     }
 
-  // RECEIVE ON PROC 0
+
   else if(rank==0)
     {
       /* printf("Sent from core %d data :\n", rank); */
@@ -780,7 +771,8 @@ void gatherFields(int ncpu,
       /* printf("Before reception :\n"); */
       /* printdmatrix(m_tot, Nx, Ny); */
       /* printf("\n"); */
-
+      
+      // RECEIVE ON PROC 0
       for(int emit=1 ; emit<ncpu ; emit++)
 	{
 	  MPI_Recv(&(m_rec[0][0]), (Nx_box+2)*(Ny_box+2), MPI_DOUBLE, emit, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

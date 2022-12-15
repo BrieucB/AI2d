@@ -42,7 +42,8 @@ double computeLocalQuantities(int lx, int ly, int N, int *x, int *y, int *s, int
 {
 
   int tot_mag=0;
-		
+  int rev_sites=0;
+  
   /* RESET MATRICES */
   for(int xi=0 ; xi<lx ; xi++)
     {
@@ -52,7 +53,6 @@ double computeLocalQuantities(int lx, int ly, int N, int *x, int *y, int *s, int
 	  local_rho[yi][xi]=0;
 	}
     }
-
   
   /* FILL MATRICES */
   #pragma omp parallel for default(shared) reduction(+: tot_mag)
@@ -66,7 +66,17 @@ double computeLocalQuantities(int lx, int ly, int N, int *x, int *y, int *s, int
       tot_mag+=si;
     }
 
-  return (((double) tot_mag)/((double) N));
+  for(int xi=0 ; xi<lx ; xi++)
+    {
+      for(int yi=0 ; yi<ly ; yi++)
+	{
+	  if(local_m[yi][xi]<-30)
+	    rev_sites++;
+	}
+    }
+  
+  //return (((double) tot_mag)/((double) N));
+  return ((double) rev_sites);
 }
 
 /* Dynamics update */

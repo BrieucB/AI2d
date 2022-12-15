@@ -38,11 +38,12 @@ int main(int argc, char** argv)
   double rhol;
   double gamma;
   double rhof;
-
+  double r0;
+  
   int ncpu;
   int nby_box;
   
-  fscanf(f_input, "ncpu = %d nby_box = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg", &ncpu, &nby_box, &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof);
+  fscanf(f_input, "ncpu = %d nby_box = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg r0 = %lg", &ncpu, &nby_box, &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof, &r0);
 
   /* if(rank==0) */
   /*   printf("ncpu = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg\n", ncpu, tgap, tmax, dt, lx, ly, ds, rhol, beta, v, D, gamma, rhof); */
@@ -61,8 +62,10 @@ int main(int argc, char** argv)
   double Nt= floor(tmax/dt);
   int Nx= (int) floor(lx/ds);
   Nx = Nx - Nx%nbx_box;
+  
   int Ny= (int) floor(ly/ds);
   Ny = Ny - Ny%nby_box;
+  
   int Ny2= (int) floor(Ny/2);
   int Nout=(int) floor(tgap/dt);
   int clap = Nout;
@@ -131,8 +134,7 @@ int main(int argc, char** argv)
   rho_rec = dmatrix((long) Nx_box, (long) Ny_box);
   
   /* Initialize fields */
-  initFields(rank, rho_tot, m_tot, m_rec, Nx, Ny, Ny2, Nx_box, Ny_box, ds, rhof, rhol, ml);
-
+  initFields(rank, rho_tot, m_tot, m_rec, Nx, Ny, Ny2, Nx_box, Ny_box, ds, rhof, rhol, ml, r0);
   
   /* Scatter fields among the cpus */
   scatterTotalMatrices(rank, Nx_box, Ny_box, Ny, nbx_box, nby_box, ncpu, m_tot, rho_tot, rho_loc, m_loc, rho_rec, m_rec);
@@ -189,15 +191,17 @@ int main(int argc, char** argv)
 	{
 	  fprintf(f_track,"%d\n", (int) floor(t*dt));
 	  fflush(f_track);
-	  if(rank==0)
-	    printf("%d\n", (int) floor(t*dt));
+	  /* if(rank==0) */
+	  /*   printf("%d\n", (int) floor(t*dt)); */
       
 	  t1+=10;
 	}
-      /* updateFields(Nx_box, Ny_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt); */
 
-      updateFieldsNoTail(Nx_box, Ny_box, nbx_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt, rank, box0, x0, ml, rhol, rank_x, shift, x0_shifted, box_x, x0_rel, x01, x01_rel, box_x1);
-/* Find position of the fluctuation */
+      updateFields(Nx_box, Ny_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt);
+
+      /* updateFieldsNoTail(Nx_box, Ny_box, nbx_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt, rank, box0, x0, ml, rhol, rank_x, shift, x0_shifted, box_x, x0_rel, x01, x01_rel, box_x1); */
+
+      /* Find position of the fluctuation */
       old_box0=box0;
       old_x0=x0;
 
@@ -259,8 +263,8 @@ int main(int argc, char** argv)
   
 	  outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot);
 
-	  if(rank==0)
-	    printf("%f\n", t*dt);
+	  /* if(rank==0) */
+	  /*   printf("%f\n", t*dt); */
 	  
 	}
       
@@ -268,19 +272,19 @@ int main(int argc, char** argv)
 
   gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny);
 
-  /* /\* Output minimal magnetization *\/ */
-  /* if(rank==0) */
-  /*   { */
-  /*     double fmin=1; */
-  /*     for(x0=0 ; x0<Nx ; x0++) */
-  /* 	{ */
-  /* 	  if(m_tot[x0][Ny2]<fmin) */
-  /* 	    fmin=m_tot[x0][Ny2]; */
-  /* 	} */
+  /* Output minimal magnetization */
+  if(rank==0)
+    {
+      double fmin=1;
+      for(x0=0 ; x0<Nx ; x0++)
+	{
+	  if(m_tot[x0][Ny2]<fmin)
+	    fmin=m_tot[x0][Ny2];
+	}
       
-  /*     printf("%f\n", fmin); */
+      printf("%f\n", fmin);
 
-  /*   } */
+    }
   
   
   // CLOSE FILES

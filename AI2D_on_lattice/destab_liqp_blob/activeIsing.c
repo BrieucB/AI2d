@@ -35,6 +35,7 @@ int main(void)
   int j, i, max_mag, x_i0, y_i0;
   double clap, p, tot_mag, t1, avg_rho;
   double h0;
+  int sigma0, Nit; 
   
   /******************* Files ************************/
   	
@@ -65,17 +66,18 @@ int main(void)
   
   /****************** Parameter inputs ***************/
 	
-  if(fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg", &tgap, &tmax, &rho0, &lx, &ly, &w0, &beta, &v, &D, &h0)!=10){exit(1);};
+  if(fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg r0 = %d Nit = %d", &tgap, &tmax, &rho0, &lx, &ly, &w0, &beta, &v, &D, &h0, &sigma0, &Nit)!=12){exit(1);};
 
-  int sigma0=1;
   
   N = (int) floor(rho0*lx*ly);
-  int Nfluct = (int) floor(rho0*sigma0*sigma0*h0);
+
+  h0*=rho0;
+  int Nfluct = (int) floor(M_PI*h0*sigma0*sigma0);
   
   dt=1./(4.*D+v+w0*exp(beta));
 
   
-  printf("dt = %lg tgap = %lg tmax = %lg N = %d lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg\n" , dt, tgap, tmax, N, lx, ly, w0, beta, v, D, h0);
+  printf("dt = %lg tgap = %lg tmax = %lg N = %d lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg r0 = %d\n" , dt, tgap, tmax, N, lx, ly, w0, beta, v, D, h0, sigma0);
   
   /* ----------------------------------------------------------------------------- */		
   /***************************************************/	
@@ -109,10 +111,10 @@ int main(void)
   
   constant();
 
-  for(int Nit=0 ; Nit<100; Nit++)
+  for(int it=0 ; it<Nit; it++)
     {
       N = (int) floor(rho0*lx*ly);
-      int Nfluct = (int) floor(rho0*sigma0*sigma0*h0);
+      int Nfluct = (int) floor(M_PI*h0*sigma0*sigma0);
 
       max_mag=0;
       tot_mag=0;
@@ -151,27 +153,42 @@ int main(void)
       double avg_m=0;
       int lx2 = (int) floor(((double)lx)/2);
       int ly2 = (int) floor(((double)ly)/2);
-
-      while( (t<tblob) || ( (frac_rev>frac_rev0) && (frac_rev<0.1) ) ) /* TEMPORAL LOOP */
+      int destab=0;
+      
+      while( (t<tblob) || (destab==0) ) /* TEMPORAL LOOP */
 	{
 	  /* ADD A FLUCTUATION */
 	  if((t>=tblob)&&(t<tblob+dt))
 	    {
 
+	      /* By reversing the particles in the fluctuation zone */
+	      for(i=0 ; i<N ; i++)
+		{
+		  x_i0=x[i];
+		  y_i0=y[i];
+
+		  if((lx2-x_i0)*(lx2-x_i0) + (ly2-y_i0)*(ly2-y_i0) <= sigma0*sigma0)
+		    {
+		      s[i]=-1;
+		    }
+		}
+	      
 	      /* By adding particles */
 	      N+=Nfluct;
 	      for(i=N-Nfluct ; i<N ; i++)
 		{
 		  x_i0=(int) floor(lx2-sigma0 + 2.*sigma0*genrand32_real2(rng));
-		  x[i]=x_i0;
-
 		  y_i0=(int) floor(ly2-sigma0 + 2.*sigma0*genrand32_real2(rng));
+		  
+		  while((lx2-x_i0)*(lx2-x_i0) + (ly2-y_i0)*(ly2-y_i0) > sigma0*sigma0)
+		    {
+		      x_i0=(int) floor(lx2-sigma0 + 2.*sigma0*genrand32_real2(rng));
+		      y_i0=(int) floor(ly2-sigma0 + 2.*sigma0*genrand32_real2(rng));		  
+		    }
+
+		  x[i]=x_i0;
 		  y[i]=y_i0;
-	      
 		  s[i]=-1;
-		  /* p=genrand32_real2(rng); */
-		  /* if(p>fabs(tot_mag)) */
-		  /*   s[i]=1; */
 	      
 		  local_m[y_i0][x_i0]+=s[i];
 		  local_rho[y_i0][x_i0]+=1;
@@ -179,45 +196,25 @@ int main(void)
 		}
 	    }
 
-	  if((t>=tblob)&&(t<tblob+dt))
-	    {
-	      frac_rev0=frac_rev;
 
-	    }
-      
+	  
 	  /* SHUFFLE IN BOX */ 
 	  frac_rev=computeLocalQuantities(lx, ly, N, x, y, s, local_m, local_rho); 
       
 	  /* COMPUTE DISPLACEMENT */
 	  updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
 
-	  /* Save magnetization */
+	  /* /\* Save magnetization *\/ */
 	  /* if(t>=t1) */
 	  /*   { */
 	  /*     t1+=0.1; */
-	  /*     //	  fprintf(f_mag, "%f %f\n", t, tot_mag); */
+	  /*     /\* fprintf(f_mag, "%f %f\n", t, tot_mag); *\/ */
 	  /*     fprintf(f_mag, "%f %f\n", t, frac_rev); */
 	  /*     fflush(f_mag); */
 	  /*   } */
 
 	  /* if(t>=clap) */
 	  /*   { */
-
-	  /*     /\*     for(i=0 ; i<lx ; i++) *\/ */
-	  /*     /\* 	{ *\/ */
-	  /*     /\* 	  avg_rho=0; *\/ */
-	  /*     /\* 	  avg_m=0; *\/ */
-	  /*     /\* 	  for(j=0 ; j<ly ; j++) *\/ */
-	  /*     /\* 	    { *\/ */
-	  /*     /\* 	      avg_rho+=local_rho[j][i]; *\/ */
-	  /*     /\* 	      avg_m+=local_m[j][i]; *\/ */
-	  /*     /\* 	    } *\/ */
-	      
-	  /*     /\* 	  fprintf(f_bands_rho, "%f ", ((double) avg_rho)/((double) ly)); *\/ */
-	  /*     /\* 	  fprintf(f_bands_m, "%f ", ((double) avg_m)/((double) ly)); *\/ */
-	      
-	  /*     /\* 	} *\/ */
-		  
 	  /*     /\* Save magnetization profile *\/ */
 	  /*     for(j=0 ; j<ly ; j++) */
 	  /* 	{ */
@@ -230,16 +227,34 @@ int main(void)
 	  /*     fprintf(f_profiles, "\n\n"); */
 	  /*     fflush(f_profiles); */
 
-	  /*     /\*   fprintf(f_bands_rho, "\n"); *\/ */
-	  /*     /\*   fprintf(f_bands_m, "\n"); *\/ */
-	  /*     /\*   clap+=tgap; *\/ */
+	  /*     fprintf(f_mag, "%f %f\n", t, frac_rev); */
+	      
+	  /*     clap+=tgap; */
 	  /*   } */
 
+	  int mag_ahead=0;
+	  for(int j=ly2-2 ; j<ly2+3 ; j++ )
+	    {
+	      for(int i=lx2-50-2 ; i<lx2-50+3 ; i++ )
+		{
+		  mag_ahead+=local_m[j][i];
+		}
+	    }
+	  if(mag_ahead<-25*rho0)
+	    destab=1;
+
+	  if(t>=200)
+	    destab=1;
+	  
 	  t+=dt;
-	  //      printf("%f %f\n", frac_rev0, frac_rev);
+	  //	  printf("%f %f %f %f\n", t, frac_rev0, frac_rev, 0.1*100*200/(lx*ly));
 	} /* END WHILE */
+
+      if(t>=200)      
+	fprintf(f_mag, "0 ");
+      else
+	fprintf(f_mag, "%f ", t);
       
-      fprintf(f_mag, "%f ", frac_rev);
       fflush(f_mag);
     }      
 	    

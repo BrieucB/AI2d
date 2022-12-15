@@ -7,8 +7,8 @@
 .SUFFIXES:
 
 CC = gcc
-LDLIBS = -lm -fopenmp
-CFLAGS = -Ofast -fopenmp
+LDLIBS = -lm #-fopenmp
+CFLAGS = -Ofast #-fopenmp
 CCFLAGS = #-g -Wall #-pg
 
 OBJ = tools.o activeIsing.o allocation.o exit_if.o erreurs.o pcg_basic.o

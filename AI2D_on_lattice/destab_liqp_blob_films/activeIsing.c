@@ -35,24 +35,16 @@ int main(void)
   int j, i, max_mag, x_i0, y_i0;
   double clap, p, tot_mag, t1, avg_rho;
   double h0;
+  int sigma0, Nit; 
   
   /******************* Files ************************/
   	
-  FILE *f_input, *f_gnuplot, *f_profiles, *f_mag, *f_plotmag;
-  FILE *f_bands_rho, *f_bands_m, *f_td;
+  FILE *f_input, *f_profiles_m, *f_profiles_rho, *f_mag;
   
   f_input=fopen("f_input.dat", "r");
-
-  f_td=fopen("f_td.dat", "w");
-
-  f_gnuplot=fopen("plot_profiles.gp", "w");
-  f_profiles=fopen("f_profiles.dat", "w");
-
   f_mag=fopen("f_mag.dat", "w");
-  f_plotmag=fopen("plot_mag.gp", "w");
-
-  f_bands_rho=fopen("f_bands_rho.dat", "w");
-  f_bands_m=fopen("f_bands_m.dat", "w");
+  f_profiles_m=fopen("f_profiles_m.dat", "w");
+  f_profiles_rho=fopen("f_profiles_rho.dat", "w");
   
   /****************** Random initialization **********/
 	
@@ -65,25 +57,18 @@ int main(void)
   
   /****************** Parameter inputs ***************/
 	
-  if(fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg", &tgap, &tmax, &rho0, &lx, &ly, &w0, &beta, &v, &D, &h0)!=10){exit(1);};
+  if(fscanf(f_input, "tgap = %lg tmax = %lg rho0 = %lg lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg r0 = %d", &tgap, &tmax, &rho0, &lx, &ly, &w0, &beta, &v, &D, &h0, &sigma0)!=11){exit(1);};
 
-  /************* Rescale parameters by detection surface **************/
-
-  D=9.*D;
-  rho0=rho0/9.;
-  lx=3*lx;
-  ly=3*ly;
-  v=3*v;
-
-  int sigma0=3;
   
   N = (int) floor(rho0*lx*ly);
-  int Nfluct = (int) floor(rho0*sigma0*sigma0*h0);
+
+  h0*=rho0;
+  int Nfluct = (int) floor(M_PI*h0*sigma0*sigma0);
   
   dt=1./(4.*D+v+w0*exp(beta));
 
   
-  printf("dt = %lg tgap = %lg tmax = %lg N = %d lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg\n" , dt, tgap, tmax, N, lx, ly, w0, beta, v, D, h0);
+  printf("dt = %lg tgap = %lg tmax = %lg N = %d lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg h0 = %lg r0 = %d\n" , dt, tgap, tmax, N, lx, ly, w0, beta, v, D, h0, sigma0);
   
   /* ----------------------------------------------------------------------------- */		
   /***************************************************/	
@@ -155,38 +140,45 @@ int main(void)
   int lx2 = (int) floor(((double)lx)/2);
   int ly2 = (int) floor(((double)ly)/2);
 
-  while(t<tmax)
+  while(t<tmax) /* TEMPORAL LOOP */
     {
-      
       /* ADD A FLUCTUATION */
       if((t>=tblob)&&(t<tblob+dt))
 	{
 
+	  /* By reversing the particles in the fluctuation zone */
+	  for(i=0 ; i<N ; i++)
+	    {
+	      x_i0=x[i];
+	      y_i0=y[i];
+
+	      if((lx2-x_i0)*(lx2-x_i0) + (ly2-y_i0)*(ly2-y_i0) <= sigma0*sigma0)
+		{
+		  s[i]=-1;
+		}
+	    }
+	      
 	  /* By adding particles */
 	  N+=Nfluct;
 	  for(i=N-Nfluct ; i<N ; i++)
 	    {
 	      x_i0=(int) floor(lx2-sigma0 + 2.*sigma0*genrand32_real2(rng));
-	      x[i]=x_i0;
-
 	      y_i0=(int) floor(ly2-sigma0 + 2.*sigma0*genrand32_real2(rng));
+		  
+	      while((lx2-x_i0)*(lx2-x_i0) + (ly2-y_i0)*(ly2-y_i0) > sigma0*sigma0)
+		{
+		  x_i0=(int) floor(lx2-sigma0 + 2.*sigma0*genrand32_real2(rng));
+		  y_i0=(int) floor(ly2-sigma0 + 2.*sigma0*genrand32_real2(rng));		  
+		}
+
+	      x[i]=x_i0;
 	      y[i]=y_i0;
-	      
 	      s[i]=-1;
-	      p=genrand32_real2(rng);
-	      if(p>fabs(tot_mag))
-		s[i]=1;
 	      
 	      local_m[y_i0][x_i0]+=s[i];
 	      local_rho[y_i0][x_i0]+=1;
 	      tot_mag+=s[i];
 	    }
-	}
-
-      if((t>=tblob)&&(t<tblob+dt))
-	{
-	  frac_rev0=frac_rev;
-	  //	  printf("%f \n", frac_rev0);
 	}
       
       /* SHUFFLE IN BOX */ 
@@ -199,73 +191,45 @@ int main(void)
       /* if(t>=t1) */
       /*   { */
       /*     t1+=0.1; */
-      /*     //	  fprintf(f_mag, "%f %f\n", t, tot_mag); */
+      /*     /\* fprintf(f_mag, "%f %f\n", t, tot_mag); *\/ */
       /*     fprintf(f_mag, "%f %f\n", t, frac_rev); */
       /*     fflush(f_mag); */
       /*   } */
 
-      /* if(t>=clap) */
-      /*   { */
-
-      /*     for(i=0 ; i<lx ; i++) */
-      /* 	{ */
-      /* 	  avg_rho=0; */
-      /* 	  avg_m=0; */
-      /* 	  for(j=0 ; j<ly ; j++) */
-      /* 	    { */
-      /* 	      avg_rho+=local_rho[j][i]; */
-      /* 	      avg_m+=local_m[j][i]; */
-      /* 	    } */
-	      
-      /* 	  fprintf(f_bands_rho, "%f ", ((double) avg_rho)/((double) ly)); */
-      /* 	  fprintf(f_bands_m, "%f ", ((double) avg_m)/((double) ly)); */
-	      
-      /* 	} */
-
       if(t>=clap)
-	{      
+	{
 	  /* Save magnetization profile */
 	  for(j=0 ; j<ly ; j++)
 	    {
 	      for (i=0 ; i<lx ; i++)
 		{
-		  fprintf(f_profiles, "%f ", ((double)local_m[j][i])/9);
+		  fprintf(f_profiles_m, "%d ", (local_m[j][i]));
+		  fprintf(f_profiles_rho, "%d ", (local_rho[j][i]));
 		}
-	      fprintf(f_profiles, "\n");
+	      fprintf(f_profiles_m, "\n");
+	      fprintf(f_profiles_rho, "\n");
 	    }
-	  fprintf(f_profiles, "\n\n");
-	  fflush(f_profiles);
+	  fprintf(f_profiles_m, "\n\n");
+	  fprintf(f_profiles_rho, "\n\n");
 
-	  /* fprintf(f_bands_rho, "\n"); */
-	  /* fprintf(f_bands_m, "\n"); */
+	  fprintf(f_mag, "%f %f\n", t, frac_rev);
 	  clap+=tgap;
 	}
 
+
       t+=dt;
-    }      
-	    
-  /* fprintf(f_gnuplot, "set pm3d map\nset cbrange[-%f:%f]\nset palette rgb 33,13,10\nset terminal pngcairo size 800,800 enhanced font 'Verdana,10'\ndo for [i=0:%d] {\nset output sprintf('snaps/snap_%%05.0f.png', i);\n\t splot 'f_profiles.dat' index i  matrix with image notitle,\n \t set title sprintf('T = %%d', i)\n}",  3.*rho0, 3.*rho0, (int) (tmax/tgap)-1); */
-
-  /* fprintf(f_plotmag, "set yrange[-1.1:1.1]; set xrange[0:%d] ; set terminal png size 2000,800; set output 'total_mag.png'; plot 'f_mag.dat'", (int) tmax); */
-
+	  
+    } /* END WHILE */
 
   /* ----------------------------------------------------------------------*/	
   /******************* CLOSE FILES ************************/
 
   fclose(f_input);
-
-  fclose(f_td);
   
-  fclose(f_profiles);
-  fclose(f_gnuplot);
+  fclose(f_profiles_m);
+  fclose(f_profiles_rho);
 
   fclose(f_mag);
-  fclose(f_plotmag);
-
-  fclose(f_bands_rho);
-  fclose(f_bands_m);
-  
-  if(system("gnuplot plot_mag.gp ; rm -rf snaps ; mkdir snaps ; gnuplot plot_profiles.gp ; cd snaps")!=1) {exit(1);};
     
   /* -----------------------------------------------------------------------------*/
   /****************** FREE MEMORY *************************/
