@@ -70,6 +70,8 @@ void solve_HD_out(int lx, int tmax, double dt, double ds, double beta, double D,
   int t1=0;
 
   /* int cpt_t=0; */
+
+
   while(t<Nt)
     {
       /* printf("%.2f\n", t*dt); */
@@ -153,16 +155,26 @@ void solve_HD_out(int lx, int tmax, double dt, double ds, double beta, double D,
 	  int frontpos=0;
 	  int backpos=0;
 	  int cometpos=0;
-	  int frontdens=0;
+	  double frontdens=0;
+	  double frontmag=0;
+  
+	  for(int x=1 ; x<Nx-2 ; x++)
+	    {
+	      if((m[x]<frontmag))
+		frontmag=m[x];
+	      
+	    }
+	  //	  printf("%f\n", frontmag);
+	  
 	  for(int x=1 ; x<Nx-2 ; x++)
 	    {
 	      if((m[x]>=0)&&(m[x+1]<0))
 		frontpos=x;
 
-	      if((m[x]<-0.01)&&(m[x+1]>=-0.01))
+	      if((m[x]<frontmag/2.)&&(m[x+1]>=frontmag/2.))
 		backpos=x;
 
-	      if((m[x]<0.01)&&(m[x+1]>=0.01))
+	      if((m[x]<0.5)&&(m[x+1]>=0.5))
 		cometpos=x;
 	  
 	      if(rho[x]>frontdens)
@@ -170,7 +182,7 @@ void solve_HD_out(int lx, int tmax, double dt, double ds, double beta, double D,
 	    }
 	  t1+=(int) floor(10/dt);
 
-	  fprintf(f_out, "%f %d %d %d %d\n", t*dt, frontpos, backpos, cometpos, frontdens);
+	  fprintf(f_out, "%f %d %d %d %f\n", t*dt, frontpos, backpos, cometpos, frontdens);
 	}
 
       

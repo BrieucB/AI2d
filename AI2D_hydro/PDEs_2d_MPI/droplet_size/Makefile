@@ -9,7 +9,7 @@
 CC = mpicc
 LDLIBS = -lm
 CFLAGS = -Ofast
-CCFLAGS = #-g -Wall #-pg
+CCFLAGS = -g -Wall #-pg
 
 OBJ = solve_PDEs_2d.o allocation.o exit_if.o erreurs.o tools.o
 

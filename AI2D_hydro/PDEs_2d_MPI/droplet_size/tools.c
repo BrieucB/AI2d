@@ -95,7 +95,8 @@ void initFields(int rank,
 		double ds,
 		double rhof,
 		double rhol,
-		double ml
+		double ml,
+		double r0
 		)
 {
 
@@ -115,7 +116,6 @@ void initFields(int rank,
       /* Add a perturbation */
       int Nxfront=(int) floor((Nx)/2);
 
-      double r0=3;
       for(int x=Nxfront-((int) floor(r0/ds))+1 ; x<Nxfront+((int) floor(r0/ds)); x++)
         {
           double dsx=((double) x- (double) Nxfront);
@@ -128,12 +128,24 @@ void initFields(int rank,
               if(ds*ds*(dsx*dsx+dsy*dsy)<=r0*r0)
                 {
                   rho_tot[x][y] += (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0)));
-                  m_tot[x][y] -= (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); // ADD A BLOB OF density rhof : change normalization constant in 1d
+                  m_tot[x][y] -= (rhof/0.148)*exp(-1./(1.-ds*ds*(dsx*dsx+dsy*dsy)/(r0*r0))); // ADD A BLOB OF containing rhof*pi*r0^2 particles
                 }
             }
         }
 
-      /* printdmatrix(m_tot, Nx, Ny); */
+
+      /* Debug */
+      /* int cpt=1; */
+      /* for(int x=0 ; x<Nx ; x++) */
+      /*   { */
+      /*     for(int y=0 ; y<Ny ; y++) */
+      /*       { */
+      /*         rho_tot[x][y]=cpt; */
+      /*         m_tot[x][y]=cpt; */
+      /* 	      cpt++; */
+      /*       } */
+      /* 	} */
+
     }
 
   return;
@@ -156,34 +168,49 @@ void scatterTotalMatrices(int rank,
 {
 
   int dest;
-  
+
   /* Send the submatrices of *_tot matrices to each appropriate cpu */
   if(rank==0)
     {
+      
       MPI_Datatype init_mat;
-      // MPI_TYPE_VECTOR (count, blocklength, stride, oldtype, newtype)                
+      // MPI_TYPE_VECTOR (count, blocklength, stride, oldtype, newtype)
+      MPI_Type_vector(Nx_box, Ny_box, Ny, MPI_DOUBLE, &init_mat);
+      MPI_Type_commit(&init_mat);
+      
+      for(dest=1 ; dest<ncpu ; dest++)
+        {
+          MPI_Send(&(m_tot[(int) ((dest%nbx_box)*Nx_box)][(int) ((dest/nbx_box)*Ny_box)]), 1, init_mat, dest, 1, MPI_COMM_WORLD);
+	  /* printf("Sent m_tot from %d to %d\n", rank, dest); */
+        }
+    }
+
+  if(rank!=0)
+    {
+      MPI_Recv(&m_rec[0][0], Nx_box*Ny_box, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      /* printf("Received m_tot on %d from %d\n", rank, 0); */
+  
+    }
+  
+  if(rank==0)
+    {      
+      MPI_Datatype init_mat;
+
       MPI_Type_vector(Nx_box, Ny_box, Ny, MPI_DOUBLE, &init_mat);
       MPI_Type_commit(&init_mat);
 
       for(dest=1 ; dest<ncpu ; dest++)
-        {
-          MPI_Send(&(m_tot[(int) ((dest%nbx_box)*Nx_box)][(int) ((dest/nbx_box)*Ny_box)]), 1, init_mat, dest, 1, MPI_COMM_WORLD);
-        }
-
-      for(dest=1 ; dest<ncpu ; dest++)
-        MPI_Send(&(rho_tot[(dest%nbx_box)*Nx_box][(dest/nbx_box)*Ny_box]), 1, init_mat, dest, 2, MPI_COMM_WORLD);
+	{
+	  MPI_Send(&(rho_tot[(dest%nbx_box)*Nx_box][(dest/nbx_box)*Ny_box]), 1, init_mat, dest, 1, MPI_COMM_WORLD);
+	  /* printf("Sent rho_tot from %d to %d\n", rank, dest); */
+	}
 
     }
 
-  /* Receive the submatrices and fill the *_loc matrices */
   if(rank!=0)
-
     {
-      //      m_rec = dmatrix((long) Nx_box, (long) Ny_box);
-      MPI_Recv(&m_rec[0][0], Nx_box*Ny_box, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-      //rho_rec = dmatrix((long) Nx_box, (long) Ny_box);
-      MPI_Recv(&rho_rec[0][0], Nx_box*Ny_box, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(&rho_rec[0][0], Nx_box*Ny_box, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      /* printf("Received rho_tot on %d from %d\n", rank, 0); */
 
       for(int x=0 ; x<Nx_box ; x++)
         {
@@ -197,24 +224,24 @@ void scatterTotalMatrices(int rank,
         }
 
     }
-
+  
   /* Fill *_loc matrices on node n°0 */
   if(rank==0)
     {
 
       for(int x=0 ; x<Nx_box ; x++)
-        {
-          for(int y=0 ; y<Ny_box ; y++)
-            {
+	{
+	  for(int y=0 ; y<Ny_box ; y++)
+	    {
 
-              rho_loc[x+1][y+1]=rho_tot[x][y];
-              m_loc[x+1][y+1]=m_tot[x][y];
+	      rho_loc[x+1][y+1]=rho_tot[x][y];
+	      m_loc[x+1][y+1]=m_tot[x][y];
 
-            }
-        }
+	    }
+	}
 
     }
-
+  
   return;
   
 }
@@ -225,101 +252,193 @@ void sendBorders(int rank,
 		 int *frame,
 		 int Nx_box,
 		 int Ny_box,
+		 MPI_Datatype sent_hborder,
+		 int ncpu		 
+		 )
+{
+
+  int i, x;
+
+  for(i=0 ; i<ncpu; i+=2)
+    {
+      // Send to left
+      if(i==rank)
+	{
+	  MPI_Send(&(m_loc[1][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank], 1, MPI_COMM_WORLD);
+  	}
+
+      // Receive from right
+      else if(i==frame[4*rank+3])
+	{
+	  MPI_Recv(&(m_loc[Nx_box+1][0]), Ny_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
+
+      // Send to right
+      if(i==rank)
+	{
+	  MPI_Send(&(m_loc[Nx_box][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank+3], 1, MPI_COMM_WORLD);
+	}
+
+      // Receive from left      
+      else if(i==frame[4*rank])
+	{
+	  MPI_Recv(&(m_loc[0][0]), Ny_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
+
+      // Send to top
+      if(i==rank)
+	{
+	  MPI_Type_vector(Nx_box+2, 1, Ny_box+2, MPI_DOUBLE, &sent_hborder);
+	  MPI_Type_commit(&sent_hborder);
+	  MPI_Send(&(m_loc[0][Ny_box]), 1, sent_hborder, frame[4*rank+1], 1, MPI_COMM_WORLD);
+	}
+
+      // Receive from bottom
+      else if(i==frame[4*rank+2])
+	{
+	  MPI_Recv(&(rec_hborder[0]), Nx_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  for(x=0 ; x<Nx_box+2 ; x++)
+	    m_loc[x][0]=rec_hborder[x];
+	}
+
+      
+      // Send to bottom
+      if(i==rank)
+	{
+	  MPI_Type_vector(Nx_box+2, 1, Ny_box+2, MPI_DOUBLE, &sent_hborder);
+	  MPI_Type_commit(&sent_hborder);
+	  MPI_Send(&(m_loc[0][1]), 1, sent_hborder, frame[4*rank+2], 1, MPI_COMM_WORLD);
+	}
+      
+      // Receive from top
+      else if(i==frame[4*rank+1])
+	{
+	  MPI_Recv(&(rec_hborder[0]), Nx_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  for(x=0 ; x<Nx_box+2 ; x++)
+	    m_loc[x][Ny_box+1]=rec_hborder[x];
+
+	}
+
+
+
+      
+    }
+
+  for(i=1 ; i<ncpu; i+=2)
+    {
+      // Send to left
+      if(i==rank)
+	{
+	  MPI_Send(&(m_loc[1][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank], 1, MPI_COMM_WORLD);
+  	}
+
+      // Receive from right
+      else if(i==frame[4*rank+3])
+	{
+	  MPI_Recv(&(m_loc[Nx_box+1][0]), Ny_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
+
+      // Send to right
+      if(i==rank)
+	{
+	  MPI_Send(&(m_loc[Nx_box][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank+3], 1, MPI_COMM_WORLD);
+	}
+
+      // Receive from left      
+      else if(i==frame[4*rank])
+	{
+	  MPI_Recv(&(m_loc[0][0]), Ny_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
+
+      // Send to top
+      if(i==rank)
+	{
+	  MPI_Type_vector(Nx_box+2, 1, Ny_box+2, MPI_DOUBLE, &sent_hborder);
+	  MPI_Type_commit(&sent_hborder);
+	  MPI_Send(&(m_loc[0][Ny_box]), 1, sent_hborder, frame[4*rank+1], 1, MPI_COMM_WORLD);
+	}
+
+      // Receive from bottom
+      else if(i==frame[4*rank+2])
+	{
+	  MPI_Recv(&(rec_hborder[0]), Nx_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  for(x=0 ; x<Nx_box+2 ; x++)
+	    m_loc[x][0]=rec_hborder[x];
+	}
+
+      
+      // Send to bottom
+      if(i==rank)
+	{
+	  MPI_Type_vector(Nx_box+2, 1, Ny_box+2, MPI_DOUBLE, &sent_hborder);
+	  MPI_Type_commit(&sent_hborder);
+	  MPI_Send(&(m_loc[0][1]), 1, sent_hborder, frame[4*rank+2], 1, MPI_COMM_WORLD);
+	}
+      
+      // Receive from top
+      else if(i==frame[4*rank+1])
+	{
+	  MPI_Recv(&(rec_hborder[0]), Nx_box+2, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  for(x=0 ; x<Nx_box+2 ; x++)
+	    m_loc[x][Ny_box+1]=rec_hborder[x];
+
+	}
+    }
+
+  return;
+}
+
+void sendBordersOld(int rank,
+		 double **m_loc,
+		 double *rec_hborder,
+		 int *frame,
+		 int Nx_box,
+		 int Ny_box,
 		 MPI_Datatype sent_hborder
 		 )
 {
 
-  // DEBUG
-  //  int rank_check=9;
-
   int x;
 
-  if(rank==0)
-    printf("Entering sendBorders rank %d\n", rank);
-  
   /********************* SEND ***********************/
   /* Send the left vertical border to the left neighbouring box */
-     
-
-  printf("Sending %d values to top\n", Ny_box+2);
-
+  printf("%d : %d\n",rank, frame[4*rank]);
+  printf("%f\n",m_loc[1][0]);
   MPI_Send(&(m_loc[1][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank], 1, MPI_COMM_WORLD);
+  printf("OK!\n");
 
-  if(rank==0)
-    printf("Left border OK");
 
   /* Send the top horizontal border to the top neighbouring box */
   MPI_Type_vector(Nx_box+2, 1, Ny_box+2, MPI_DOUBLE, &sent_hborder);
   MPI_Type_commit(&sent_hborder);
   MPI_Send(&(m_loc[0][Ny_box]), 1, sent_hborder, frame[4*rank+1], 1, MPI_COMM_WORLD);
 
-  
-  if(rank==0)
-    printf("top border OK");
-
   /* Send the bottom horizontal border to the bottom neighbouring box */
   MPI_Type_vector(Nx_box+2, 1, Ny_box+2, MPI_DOUBLE, &sent_hborder);
   MPI_Type_commit(&sent_hborder);
   MPI_Send(&(m_loc[0][1]), 1, sent_hborder, frame[4*rank+2], 1, MPI_COMM_WORLD);
-
-  if(rank==0)
-    printf("bot border OK");
-
+  
   /* Send the right vertical border to the right neighbouring box */
   MPI_Send(&(m_loc[Nx_box][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank+3], 1, MPI_COMM_WORLD);
-
-  printf("Borders sent for rank %d\n", rank);
-
-  MPI_Barrier(MPI_COMM_WORLD);
   
   /******************* RECEIVE **********************/
   /* Receive from the right neighbouring box */
-  //MPI_Recv(&(m_loc[Nx_box+1][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank+3], 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-  /* if(rank==rank_check) */
-  /*   { */
-  /*     printf("After right :\n"); */
-  /*     printdmatrix(m_loc, Nx_box+2, Ny_box+2); */
-  /*   } */
+  MPI_Recv(&(m_loc[Nx_box+1][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank+3], 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   
   /* Receive from the bottom neighbouring box */
   MPI_Recv(&(rec_hborder[0]), Nx_box+2, MPI_DOUBLE, frame[4*rank+2], 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       
   for(x=0 ; x<Nx_box+2 ; x++)
     m_loc[x][0]=rec_hborder[x];
-
-  /* if(rank==rank_check) */
-  /*   { */
-  /*     printf("After bot :\n"); */
-  /*     printdmatrix(m_loc, Nx_box+2, Ny_box+2); */
-  /*   } */
-
     
   /* Receive from the top neighbouring box */
   MPI_Recv(&(rec_hborder[0]), Nx_box+2, MPI_DOUBLE, frame[4*rank+1], 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   for(x=0 ; x<Nx_box+2 ; x++)
     m_loc[x][Ny_box+1]=rec_hborder[x];
 
-
-  /* if(rank==rank_check) */
-  /*   { */
-  /*     printf("After top :\n"); */
-  /*     printdmatrix(m_loc, Nx_box+2, Ny_box+2); */
-  /*   } */
-
   /* Receive from the left neighbouring box */
   MPI_Recv(&(m_loc[0][0]), Ny_box+2, MPI_DOUBLE, frame[4*rank], 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-
-  /* if(rank==rank_check) */
-  /*   { */
-  /*     printf("After left :\n"); */
-  /*     printdmatrix(m_loc, Nx_box+2, Ny_box+2); */
-  /*   } */
-  printf("Borders received for rank %d\n", rank);
-
-
-  
   return;
 }
 
@@ -338,17 +457,8 @@ void updateFields(int Nx_box,
 {
 
   
-  /* for(int x=0; x<Nx_box+2 ; x++) */
-  /*   { */
-  /*     memcpy(rho_loc_old[x], rho_loc[x], (Ny_box+2)*sizeof(double)); */
-  /*     memcpy(m_loc_old[x], m_loc[x], (Ny_box+2)*sizeof(double)); */
-  /*   } */
-
   memcpy(rho_loc_old[0], rho_loc[0], (Ny_box+2)*(Nx_box+2)*sizeof(double));
   memcpy(m_loc_old[0], m_loc[0], (Ny_box+2)*(Nx_box+2)*sizeof(double));
-       
-  
-  /* printf("dt = %lg beta = %lg gamma = %lg c_adv = %lg c_diff = %lg\n", dt, beta, gamma, c_adv, c_diff); */
   
   for(int x=1 ; x<Nx_box+1 ; x++)
     {
@@ -637,7 +747,7 @@ void gatherFields(int ncpu,
       /* printf("\n"); */
     }
 
-  // RECEIVE ON PROC 0
+
   else if(rank==0)
     {
       /* printf("Sent from core %d data :\n", rank); */
@@ -661,7 +771,8 @@ void gatherFields(int ncpu,
       /* printf("Before reception :\n"); */
       /* printdmatrix(m_tot, Nx, Ny); */
       /* printf("\n"); */
-
+      
+      // RECEIVE ON PROC 0
       for(int emit=1 ; emit<ncpu ; emit++)
 	{
 	  MPI_Recv(&(m_rec[0][0]), (Nx_box+2)*(Ny_box+2), MPI_DOUBLE, emit, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -703,7 +814,6 @@ void printMatBorders(int ncpu,
 		     int rank,
 		     double **rho_loc,
 		     double **m_loc,
-		     double **m_rec,
 		     int Nx_box,
 		     int Ny_box,
 		     int nbx_box,
@@ -714,7 +824,8 @@ void printMatBorders(int ncpu,
 {
   
   double **m_print = dmatrix((long) (Nx_box+2)*nbx_box, (long) (Ny_box+2)*nby_box);
-  
+  double **m_rec = dmatrix((long) Nx_box+2, (long) Ny_box+2);
+    
   
   // SEND THE LOCAL MATRICES
   if(rank!=0)

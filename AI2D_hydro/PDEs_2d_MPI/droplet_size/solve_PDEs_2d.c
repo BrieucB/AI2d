@@ -21,9 +21,13 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   
   // FILES
-  FILE *f_input, *f_rho, *f_m;
+  FILE *f_input, *f_rho, *f_m, *f_track;
   f_input=fopen("f_input.dat", "r");
+  f_track=fopen("f_track.dat", "w");
 
+  FILE *f_out;
+  f_out=fopen("f_out.dat", "w");
+  
   // PARAMETERS
   int lx, ly;
   int tmax;
@@ -37,13 +41,15 @@ int main(int argc, char** argv)
   double rhol;
   double gamma;
   double rhof;
-
+  double r0;
+  
   int ncpu;
   int nby_box;
   
-  fscanf(f_input, "ncpu = %d nby_box = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg", &ncpu, &nby_box, &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof);
+  fscanf(f_input, "ncpu = %d nby_box = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg r0 = %lg", &ncpu, &nby_box, &tgap, &tmax, &dt, &lx, &ly, &ds, &rhol, &beta, &v, &D, &gamma, &rhof, &r0);
 
-  /* printf("ncpu = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg\n", ncpu, tgap, tmax, dt, lx, ly, ds, rhol, beta, v, D, gamma, rhof); */
+  /* if(rank==0) */
+  /*   printf("ncpu = %d tgap = %lg tmax = %d dt = %lg lx = %d ly = %d ds = %lg rhol = %lg beta = %lg v = %lg D = %lg gamma = %lg rhof = %lg\n", ncpu, tgap, tmax, dt, lx, ly, ds, rhol, beta, v, D, gamma, rhof); */
   
 
   if(ncpu!=numtasks)
@@ -59,8 +65,10 @@ int main(int argc, char** argv)
   double Nt= floor(tmax/dt);
   int Nx= (int) floor(lx/ds);
   Nx = Nx - Nx%nbx_box;
+  
   int Ny= (int) floor(ly/ds);
   Ny = Ny - Ny%nby_box;
+  
   int Ny2= (int) floor(Ny/2);
   int Nout=(int) floor(tgap/dt);
   int clap = Nout;
@@ -124,56 +132,41 @@ int main(int argc, char** argv)
       rho_tot = dmatrix((long) Nx, (long) Ny);
       m_tot = dmatrix((long) Nx, (long) Ny);
     }
-
-  /* m_rec = dmatrix((long) Nx_box+2, (long) Ny_box+2); */
-  /* rho_rec = dmatrix((long) Nx_box+2, (long) Ny_box+2); */
-
+  
   m_rec = dmatrix((long) Nx_box, (long) Ny_box);
   rho_rec = dmatrix((long) Nx_box, (long) Ny_box);
   
   /* Initialize fields */
-  initFields(rank, rho_tot, m_tot, m_rec, Nx, Ny, Ny2, Nx_box, Ny_box, ds, rhof, rhol,ml);
-
-  if(rank==0)
-    printf("Init done\n");
-
+  initFields(rank, rho_tot, m_tot, m_rec, Nx, Ny, Ny2, Nx_box, Ny_box, ds, rhof, rhol, ml, r0);
+  
   /* Scatter fields among the cpus */
   scatterTotalMatrices(rank, Nx_box, Ny_box, Ny, nbx_box, nby_box, ncpu, m_tot, rho_tot, rho_loc, m_loc, rho_rec, m_rec);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  if(rank==0)
-    printf("Scattering done\n");
+  
+  /* Special init for debug */
+  /* for(int x=1 ; x<Nx_box+1 ; x++) */
+  /*   { */
+  /*     for(int y=1 ; y<Ny_box+1 ; y++) */
+  /* 	{ */
+  /* 	  rho_loc[x][y]=rank+1; */
+  /* 	  m_loc[x][y]=rank+1; */
+  /* 	} */
+  /*   } */
 
   
-  /* printMatBorders(ncpu, rank, rho_loc, m_loc, m_rec, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
-
   /* Send the borders for the cpus to communicate */
-  sendBorders(rank, m_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder);
-  MPI_Barrier(MPI_COMM_WORLD);
-  if(rank==0)
-    printf("OK\n");
-  sendBorders(rank, rho_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder);
+  sendBorders(rank, m_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder, ncpu);
+  sendBorders(rank, rho_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder, ncpu);
 
+  /* printMatBorders(ncpu, rank, rho_loc, m_loc, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
   
-  if(rank==0)
-    printf("Borders sent\n");
-
-  /* printMatBorders(ncpu, rank, rho_loc, m_loc, m_rec, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
 
   /* Print the initial field matrix */
   int t=0;
-  gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny);
-
-  if(rank==0)
-    printf("Fields gathered\n");
+  /* gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
+  /* outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot); */
 
   
-  outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot);
-
-  
-  if(rank==0)
-    printf("Fields written\n");
-
   /* Initial position of the fluctuation's front */
   if(rank==0)
     {
@@ -191,15 +184,19 @@ int main(int argc, char** argv)
   MPI_Bcast(&box0, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
+  int t1=0;
+  
   /* Temporal loop */
   for(t=0 ; t<Nt ; t++)
     {
-      printf("%f\n", t*dt);
 
+      if(rank==0)
+	printf("%d \n", t);
       /* updateFields(Nx_box, Ny_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt); */
 
       updateFieldsNoTail(Nx_box, Ny_box, nbx_box, rho_loc, m_loc, rho_loc_old, m_loc_old, beta, gamma, c_adv, c_diff, dt, rank, box0, x0, ml, rhol, rank_x, shift, x0_shifted, box_x, x0_rel, x01, x01_rel, box_x1);
-
+      printf("Update OK\n");
+      
       /* Find position of the fluctuation */
       old_box0=box0;
       old_x0=x0;
@@ -225,6 +222,7 @@ int main(int argc, char** argv)
       MPI_Bcast(&x0, 1, MPI_INT, old_box0, MPI_COMM_WORLD);
       MPI_Bcast(&box0, 1, MPI_INT, old_box0, MPI_COMM_WORLD);
       MPI_Barrier(MPI_COMM_WORLD);
+      printf("Cast OK\n");
 
       if(x0!=old_x0)
 	{
@@ -251,26 +249,60 @@ int main(int argc, char** argv)
 
 	}
       
-      sendBorders(rank, m_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder);
-      sendBorders(rank, rho_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder);
+      sendBorders(rank, m_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder, ncpu);
+      sendBorders(rank, rho_loc, rec_hborder, frame, Nx_box, Ny_box, sent_hborder, ncpu);
 
       /* Output snapshots */
-      if(t>=clap)
-	{
-	  clap+=Nout;
-	  gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny);
+      /* if(t>=clap) */
+      /* 	{ */
+      /* 	  clap+=Nout; */
+      /* 	  gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny); */
   
-	  outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot);
+      /* 	  outputFields(rank, t, dt, Nx, Ny, f_rho, f_m, rho_tot, m_tot); */
+	  
+      /* 	} */
+
+      /* COMPUTE OBSERVABLES */
+      if(t>=t1)
+	{
+	  printf("OK\n");
+	  gatherFields(ncpu, rank, rho_loc, m_loc, rho_tot, m_tot, m_rec0, rho_rec0, Nx_box, Ny_box, nbx_box, nby_box, Nx, Ny);
 
 	  if(rank==0)
-	    printf("%f\n", t*dt);
-	  
-	}
-      
-    }
+	    {
+	      printf("OK2\n");	      
+	      int frontpos=0;
+	      int backpos=0;
+	      int cometpos=0;
+	      double frontdens=0;
+	      
+	      for(int x=0 ; x<Nx-1 ; x++)
+		{
+		  if((m_tot[x][Ny2]>=0)&&(m_tot[x+1][Ny2]<0))
+		    frontpos=x;
 
+		  if((m_tot[x][Ny2]<-0.01)&&(m_tot[x+1][Ny2]>=-0.01))
+		    backpos=x;
+
+		  if((m_tot[x][Ny2]<0.01)&&(m_tot[x+1][Ny2]>=0.01))
+		    cometpos=x;
+
+		  if(rho_tot[x][Ny2]>frontdens)
+		    frontdens=rho_tot[x][Ny2];
+		}
+
+	      t1+=(int) floor(10/dt);
+
+	      fprintf(f_out, "%f %d %d %d %f\n", t*dt, frontpos, backpos, cometpos, frontdens);
+	    }
+	}
+
+    }
+  
+  
   // CLOSE FILES
   fclose(f_input);
+  fclose(f_out);
   
   // FREE ALLOC
   if(rank==0)
