@@ -68,48 +68,48 @@ double computeLocalQuantities(int lx, int ly, int N, int *x, int *y, int *s, int
       tot_mag+=si;
     }
 
-  /* COMPUTE SUM OVER 9 BOXES (NO USE OF DOUBLES) */
-  int** tmp_m=imatrix((long) ly, (long) lx);
-  int** tmp_rho=imatrix((long) ly, (long) lx);
+/*   /\* COMPUTE SUM OVER 9 BOXES (NO USE OF DOUBLES) *\/ */
+/*   int** tmp_m=imatrix((long) ly, (long) lx); */
+/*   int** tmp_rho=imatrix((long) ly, (long) lx); */
 
-#pragma omp parallel for default(shared) reduction(+: frac_rev)
-  for(int xi=0 ; xi<lx ; xi++)
-    {
-      int xip1=(xi+lx+1)%lx;
-      int xim1=(xi+lx-1)%lx;
+/* #pragma omp parallel for default(shared) reduction(+: frac_rev) */
+/*   for(int xi=0 ; xi<lx ; xi++) */
+/*     { */
+/*       int xip1=(xi+lx+1)%lx; */
+/*       int xim1=(xi+lx-1)%lx; */
 
-      for(int yi=0 ; yi<ly ; yi++)
-	{
-	  int yip1=(yi+ly+1)%ly;
-	  int yim1=(yi+ly-1)%ly;
+/*       for(int yi=0 ; yi<ly ; yi++) */
+/* 	{ */
+/* 	  int yip1=(yi+ly+1)%ly; */
+/* 	  int yim1=(yi+ly-1)%ly; */
 
-	  int mi=local_m[yim1][xim1]+local_m[yim1][xi]+local_m[yim1][xip1]+\
-	    local_m[yi][xim1]+local_m[yi][xi]+local_m[yi][xip1]+     \
-	    local_m[yip1][xim1]+local_m[yip1][xi]+local_m[yip1][xip1];
+/* 	  int mi=local_m[yim1][xim1]+local_m[yim1][xi]+local_m[yim1][xip1]+\ */
+/* 	    local_m[yi][xim1]+local_m[yi][xi]+local_m[yi][xip1]+     \ */
+/* 	    local_m[yip1][xim1]+local_m[yip1][xi]+local_m[yip1][xip1]; */
 	  
-	  int rhoi=local_rho[yim1][xim1]+local_rho[yim1][xi]+local_rho[yim1][xip1]+ \
-	    local_rho[yi][xim1]+local_rho[yi][xi]+local_rho[yi][xip1]+     \
-	    local_rho[yip1][xim1]+local_rho[yip1][xi]+local_rho[yip1][xip1];
+/* 	  int rhoi=local_rho[yim1][xim1]+local_rho[yim1][xi]+local_rho[yim1][xip1]+ \ */
+/* 	    local_rho[yi][xim1]+local_rho[yi][xi]+local_rho[yi][xip1]+     \ */
+/* 	    local_rho[yip1][xim1]+local_rho[yip1][xi]+local_rho[yip1][xip1]; */
 
-	  tmp_m[yi][xi]=mi;
-	  tmp_rho[yi][xi]=rhoi;
-	}
-    }
+/* 	  tmp_m[yi][xi]=mi; */
+/* 	  tmp_rho[yi][xi]=rhoi; */
+/* 	} */
+/*     } */
 
-  /* SET MATRICES */
-  for(int xi=0 ; xi<lx ; xi++)
-    {
-      for(int yi=0 ; yi<ly ; yi++)
-	{
-	  local_m[yi][xi]=tmp_m[yi][xi];
-	  local_rho[yi][xi]=tmp_rho[yi][xi];
-	  if(local_m[yi][xi]<0)
-	    frac_rev++;
-	}
-    }
+  /* /\* SET MATRICES *\/ */
+  /* for(int xi=0 ; xi<lx ; xi++) */
+  /*   { */
+  /*     for(int yi=0 ; yi<ly ; yi++) */
+  /* 	{ */
+  /* 	  local_m[yi][xi]=tmp_m[yi][xi]; */
+  /* 	  local_rho[yi][xi]=tmp_rho[yi][xi]; */
+  /* 	  if(local_m[yi][xi]<0) */
+  /* 	    frac_rev++; */
+  /* 	} */
+  /*   } */
 
-  free_imatrix(tmp_m);
-  free_imatrix(tmp_rho);
+  /* free_imatrix(tmp_m); */
+  /* free_imatrix(tmp_rho); */
   
   //return (((double) tot_mag)/((double) N));
   return (((double) frac_rev)/((double) lx*ly));
@@ -324,8 +324,8 @@ void updatePositionsObstacleBump(int lx, int ly, int *x, int *y, int *s, int N, 
       int yi=y[i];
       int si=s[i];
 
-      double mi=local_m[yi][xi]; //     Should be divided by 9 to get the avg, but does not matter
-      double rhoi=local_rho[yi][xi]; // since its the quotient we're interested in.
+      double mi=local_m[yi][xi];
+      double rhoi=local_rho[yi][xi]; 
             
       /* Flip the particle */
       double W=w0*exp(-si*beta*mi/rhoi);
@@ -358,8 +358,8 @@ void updatePositionsObstacleBump(int lx, int ly, int *x, int *y, int *s, int N, 
 	    x[i]=x1;
 
 	  // NO REVERSAL OF VELOCITY
-	  /* else */
-	  /*   s[i]=-si; */
+	  else
+	    s[i]=-si;
 
 	}
 
@@ -383,8 +383,8 @@ void updatePositionsObstacleBump(int lx, int ly, int *x, int *y, int *s, int N, 
 	  if(dx*dx+dy*dy>=ro2)
 	    x[i]=x1;
 
-	  /* else */
-	  /*   s[i]=-si; */
+	  else
+	    s[i]=-si;
 
 	}
 

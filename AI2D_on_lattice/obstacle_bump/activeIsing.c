@@ -69,12 +69,12 @@ int main(void)
 
   /************* Rescale parameters by detection surface **************/
 
-  D=9.*D;
-  rho0=rho0/9.;
-  lx=3*lx;
-  ly=3*ly;
-  v=3*v;
-  ro=3.*ro;
+  /* D=9.*D; */
+  /* rho0=rho0/9.; */
+  /* lx=3*lx; */
+  /* ly=3*ly; */
+  /* v=3*v; */
+  /* ro=3.*ro; */
   
   N = (int) floor(rho0*lx*ly);
   
@@ -171,8 +171,8 @@ int main(void)
       if(t<tblob)
 	updatePositions(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng);
       else
-	//	updatePositionsObstacle(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng, xo, yo, ro);
-	updatePositionsObstacleBump(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng, xo, yo, ro);
+	updatePositionsObstacle(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng, xo, yo, ro);
+	//	updatePositionsObstacleBump(lx, ly, x, y, s, N, local_m, local_rho, w0, beta, v, D, dt, rng, xo, yo, ro);
 
             
       /* ADD AN OBSTACLE */
@@ -251,7 +251,7 @@ int main(void)
 	    {
 	      for (i=0 ; i<lx ; i++)
 		{
-		  fprintf(f_profiles, "%f ", ((double)local_m[j][i])/9);
+		  fprintf(f_profiles, "%f ", ((double)local_m[j][i]));
 		}
 	      fprintf(f_profiles, "\n");
 	    }
@@ -287,7 +287,7 @@ int main(void)
   fclose(f_bands_rho);
   fclose(f_bands_m);
   
-  if(system("gnuplot plot_mag.gp ; rm -rf snaps ; mkdir snaps ; gnuplot plot_profiles.gp ; cd snaps")!=1) {exit(1);};
+  /* if(system("gnuplot plot_mag.gp ; rm -rf snaps ; mkdir snaps ; gnuplot plot_profiles.gp ; cd snaps")!=1) {exit(1);}; */
     
   /* -----------------------------------------------------------------------------*/
   /****************** FREE MEMORY *************************/
