@@ -84,10 +84,12 @@ int main(void)
   
   dt=1./(4.*D+v+w0*exp(beta));
 
-  int Nl = (int) floor(rhol*phi*ly);
-  int Ng = (int) floor(rhog*(lx-phi)*ly);
+  /* int Nl = (int) floor(rhol*phi*ly); */
+  /* int Ng = (int) floor(rhog*(lx-phi)*ly); */
 
-  N = Nl + Ng;
+  /* N = Nl + Ng; */
+
+  N=(int) floor(rho0*lx*ly);
   
   printf("dt = %lg tgap = %lg tmax = %lg rhol = %lg N = %d lx = %d ly = %d w0 = %lg beta = %lg v = %lg D = %lg\n" , dt, tgap, tmax, rhol, N, lx, ly, w0, beta, v, D);
   
@@ -126,7 +128,7 @@ int main(void)
 
   /* Compute Nd destabilization occurring times */
 
-  int Nd=50;
+  int Nd=500;
   for(int it_Nd=0 ; it_Nd<Nd ; it_Nd++)
     {
       max_mag=0;
@@ -141,9 +143,9 @@ int main(void)
 	    }
 	}
   
-      for(i=0 ; i<Nl ; i++)
+      for(i=0 ; i<N ; i++) //for(i=0 ; i<Nl ; i++)
 	{
-	  x_i0=(int) floor(phi*genrand32_real2(rng));
+	  x_i0=(int) floor(phi*lx*genrand32_real2(rng));
 	  x[i]=x_i0;
 
 	  y_i0=(int) floor(ly*genrand32_real2(rng));
@@ -159,23 +161,23 @@ int main(void)
 	  tot_mag+=s[i];
 	}
 
-      for(i=Nl ; i<Nl+Ng ; i++)
-	{
-	  x_i0=(int) floor(phi+(lx-phi)*genrand32_real2(rng));
-	  x[i]=x_i0;
+      /* for(i=Nl ; i<Nl+Ng ; i++) */
+      /* 	{ */
+      /* 	  x_i0=(int) floor(phi+(lx-phi)*genrand32_real2(rng)); */
+      /* 	  x[i]=x_i0; */
 
-	  y_i0=(int) floor(ly*genrand32_real2(rng));
-	  y[i]=y_i0;
+      /* 	  y_i0=(int) floor(ly*genrand32_real2(rng)); */
+      /* 	  y[i]=y_i0; */
       
-	  p=genrand32_real2(rng);
-	  s[i]=1;
-	  if(p>.5)
-	    s[i]=-1;
+      /* 	  p=genrand32_real2(rng); */
+      /* 	  s[i]=1; */
+      /* 	  if(p>.5) */
+      /* 	    s[i]=-1; */
 
-	  local_m[y_i0][x_i0]+=s[i];
-	  local_rho[y_i0][x_i0]+=1;
-	  tot_mag+=s[i];
-	}
+      /* 	  local_m[y_i0][x_i0]+=s[i]; */
+      /* 	  local_rho[y_i0][x_i0]+=1; */
+      /* 	  tot_mag+=s[i]; */
+      /* 	} */
   
       t=0.;
       clap=0.;
@@ -248,24 +250,27 @@ int main(void)
 		      avg_m+=local_m[j][i];
 		    }
 	      
-		  fprintf(f_bands_rho, "%f ", ((double) avg_rho)/((double) ly));
-		  fprintf(f_bands_m, "%f ", ((double) avg_m)/((double) ly));
+		  /* fprintf(f_bands_rho, "%f ", ((double) avg_rho)/((double) ly)); */
+		  /* fprintf(f_bands_m, "%f ", ((double) avg_m)/((double) ly)); */
 		}
-	      fprintf(f_bands_rho, "\n");
-	      fprintf(f_bands_m, "\n");
+	      /* fprintf(f_bands_rho, "\n"); */
+	      /* fprintf(f_bands_m, "\n"); */
 
 	      /* Save magnetization profile */
-	      for(j=0 ; j<ly ; j++)
+	      if(it_Nd<10)
 		{
-		  for (i=0 ; i<lx ; i++)
+		  for(j=0 ; j<ly ; j++)
 		    {
-		      fprintf(f_profiles, "%f ", ((double)local_m[j][i]));
+		      for (i=0 ; i<lx ; i++)
+			{
+			  fprintf(f_profiles, "%f ", ((double)local_m[j][i]));
+			}
+		      fprintf(f_profiles, "\n");
 		    }
-		  fprintf(f_profiles, "\n");
+		  fprintf(f_profiles, "\n\n");
+		  fflush(f_profiles);
 		}
-	      fprintf(f_profiles, "\n\n");
-	      fflush(f_profiles);
-
+	      
 	      break;
 	    }
       

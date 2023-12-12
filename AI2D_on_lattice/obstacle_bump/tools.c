@@ -65,6 +65,10 @@ double computeLocalQuantities(int lx, int ly, int N, int *x, int *y, int *s, int
 
       local_m[yi][xi]+=si;
       local_rho[yi][xi]+=1;
+
+      if(local_m[yi][xi]<0)
+	frac_rev++;
+
       tot_mag+=si;
     }
 
@@ -357,7 +361,6 @@ void updatePositionsObstacleBump(int lx, int ly, int *x, int *y, int *s, int N, 
 	  if(dx*dx+dy*dy>=ro2)
 	    x[i]=x1;
 
-	  // NO REVERSAL OF VELOCITY
 	  else
 	    s[i]=-si;
 
